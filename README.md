@@ -1,16 +1,57 @@
-# React + Vite
+# 💘 Is This Really Love? (이게 정말 사랑일까?)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **스토킹과 교제폭력 인식 개선을 위한 체험형 웹 애플리케이션**
 
-Currently, two official plugins are available:
+이 프로젝트는 대학생 인권 서포터즈 활동의 일환으로 제작되었으며, 사용자에게 일상 속에서 발생할 수 있는 집착과 통제 상황을 시뮬레이션으로 체험하게 함으로써 교제폭력의 위험성을 알리고 인식을 개선하는 것을 목적으로 합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## ✨ 주요 기능
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **📱 맞춤형 시뮬레이션**: iOS 및 Android 환경 선택 기능을 통해 사용자 기기에 최적화된 UX 제공
+- **📞 수신 전화 체험**: 실제 전화가 오는 듯한 진동 효과와 화면 구성을 통해 몰입감 있는 체험 제공
+- **👥 젠더 버전 선택**: 여성/남성 버전을 각각 제공하여 다양한 상황에서의 폭력 양상 확인
+- **🚨 인식 개선 정보**: 체험 종료 후 스토킹 및 교제폭력에 대한 올바른 정보와 경고 메시지 전달
+- **📸 캠페인 연계**: 인권 서포터즈 공식 인스타그램과의 연결을 통한 지속적인 캠페인 참여 유도
 
-## Expanding the ESLint configuration
+## 🛠 기술 스택
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Core**: React 18
+- **Build Tool**: Vite
+- **Styling**: Vanilla CSS (Custom UI Components)
+- **Icons**: Pure SVG Icons
+- **Deployment**: GitHub Pages (via GitHub Actions)
+
+## 🚀 시작하기
+
+### 개발 환경 설정
+
+```bash
+# 의존성 설치
+npm install
+
+# 로컬 개발 서버 실행
+npm run dev
+```
+
+### 빌드 및 배포
+
+```bash
+# 프로젝트 빌드
+npm run build
+
+# 배포 확인 (dist 폴더 생성 확인)
+npm run preview
+```
+
+## 📢 알림
+
+본 프로젝트는 교육 및 캠페인 목적으로 제작되었습니다. 스토킹이나 교제폭력으로 인해 도움이 필요하신 분은 아래의 기관에 도움을 요청하실 수 있습니다.
+
+- **여성긴급전화**: 국번없이 1366
+- **경찰청**: 112
+- **한국여성의전화**: 02-3156-5400
+
+---
+
+© 2026 인권 서포터즈. All rights reserved.
