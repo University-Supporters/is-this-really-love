@@ -29,14 +29,14 @@ const IconInsta = () => (
 // --- Constants ---
 const CALLERS = {
   female: [
-    { name: "내 사랑 ❤️", audio: "female_1" },
-    { name: "오빠", audio: "female_2" },
-    { name: "민수", audio: "female_3" }
+    { name: "내 사랑 ❤️", audio: "/audio/female_1.mp3", image: "/images/female_1.jpg" },
+    { name: "오빠", audio: "/audio/female_2.mp3", image: "/images/female_2.jpg" },
+    { name: "민수", audio: "/audio/female_3.mp3", image: "/images/female_3.jpg" }
   ],
   male: [
-    { name: "지연이", audio: "male_1" },
-    { name: "수진이", audio: "male_2" },
-    { name: "우리 공주님 👸", audio: "male_3" }
+    { name: "지연이", audio: "/audio/male_1.mp3", image: "/images/male_1.jpg" },
+    { name: "수진이", audio: "/audio/male_2.mp3", image: "/images/male_2.jpg" },
+    { name: "우리 공주님 👸", audio: "/audio/male_3.mp3", image: "/images/male_3.jpg" }
   ]
 };
 
@@ -45,8 +45,15 @@ export default function App() {
   const [config, setConfig] = useState({ os: null, gender: null, caller: null });
   const [seconds, setSeconds] = useState(0);
   const vibrationRef = useRef(null);
+  const audioRef = useRef(null);
 
   // --- Handlers ---
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  };
   const startVibration = () => {
     if ('vibrate' in navigator) {
       vibrationRef.current = setInterval(() => {
@@ -73,10 +80,15 @@ export default function App() {
   const handleAccept = () => {
     stopVibration();
     setScreen('incall');
+    if (config.caller?.audio) {
+      audioRef.current = new Audio(config.caller.audio);
+      audioRef.current.play().catch(e => console.log("Audio play deferred:", e));
+    }
   };
 
   const handleDecline = () => {
     stopVibration();
+    stopAudio();
     setScreen('info');
   };
 
@@ -141,7 +153,11 @@ export default function App() {
       {screen === 'incall' && (
         <div className="screen in-call-screen">
           <div className="in-call-top">
-            <div className="in-call-avatar"><IconUser /></div>
+            <div className="in-call-avatar">
+              {config.caller?.image ? (
+                <img src={config.caller.image} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => e.target.style.display = 'none'} />
+              ) : <IconUser />}
+            </div>
             <h2>{name}</h2>
             <p>{formatTime(seconds)}</p>
           </div>
@@ -151,7 +167,7 @@ export default function App() {
             ))}
           </div>
           <div className="in-call-bottom">
-            <button className="hangup-btn" onClick={() => setScreen('info')}><IconPhone rotate={135} /></button>
+            <button className="hangup-btn" onClick={() => { stopAudio(); setScreen('info'); }}><IconPhone rotate={135} /></button>
           </div>
         </div>
       )}
