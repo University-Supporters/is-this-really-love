@@ -259,13 +259,15 @@ export default function App() {
               <div className="w-20 h-20 bg-indigo-500/20 rounded-full flex items-center justify-center mb-6">
                 <IconAlert />
               </div>
-              <h2 className="text-2xl font-black mb-4 leading-tight">이것은 실제 상황일 수 있습니다.</h2>
+              <h2 className="text-2xl font-black mb-4 leading-tight break-keep">
+                이것은 실제 상황일 수 있습니다.
+              </h2>
               
-              <div className="bg-slate-900/50 p-6 rounded-2xl text-left border-l-4 border-indigo-500">
+              <div className="bg-slate-900/50 p-6 rounded-2xl text-left border-l-4 border-indigo-500 break-keep">
                 <p className="text-lg leading-relaxed mb-4">
-                  <strong>스토킹과 교제폭력</strong>은 사랑이 아닙니다.
+                  <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
                 </p>
-                <p className="text-slate-400">
+                <p className="text-slate-400 text-sm sm:text-base">
                   상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
                 </p>
               </div>
