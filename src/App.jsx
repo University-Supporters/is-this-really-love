@@ -73,8 +73,12 @@ export default function App() {
 
   const handleStart = (gender) => {
     const callers = CALLERS[gender];
-    const randomCaller = callers[Math.floor(Math.random() * callers.length)];
-    setConfig({ ...config, gender, caller: randomCaller });
+    const randomIndex = Math.floor(Math.random() * callers.length);
+    const randomCaller = callers[randomIndex];
+    
+    // Reset state for a new session
+    setSeconds(0);
+    setConfig(prev => ({ ...prev, gender, caller: randomCaller }));
     setScreen('incoming');
     startVibration();
   };
