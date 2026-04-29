@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, PhoneOff, Instagram, AlertTriangle, User } from 'lucide-react';
+import { Phone, Instagram, TriangleAlert, User } from 'lucide-react';
 import './App.css';
 
 // --- Sub-Components ---
@@ -140,13 +140,14 @@ const InCallScreen = ({ gender, onHangup }) => {
             key={i}
             className="v-bar"
             animate={{ 
-              height: [10, Math.random() * 40 + 20, 10],
+              height: [10, 40, 10],
               opacity: [0.5, 1, 0.5]
             }}
             transition={{ 
-              duration: 0.6 + Math.random() * 0.4,
+              duration: 0.8,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
+              delay: i * 0.1
             }}
           />
         ))}
@@ -170,7 +171,7 @@ const InfoScreen = () => {
       animate={{ opacity: 1 }}
     >
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <AlertTriangle size={64} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+        <TriangleAlert size={64} color="var(--primary)" style={{ marginBottom: '1rem' }} />
         <h2>이것은 실제 상황일 수 있습니다.</h2>
       </div>
 
