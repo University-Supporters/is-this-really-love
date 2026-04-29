@@ -99,6 +99,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Preload all images to avoid delay during incoming call
+    Object.values(CALLERS).flat().forEach(caller => {
+      const img = new Image();
+      img.src = caller.image;
+    });
+  }, []);
+
+  useEffect(() => {
     let timer;
     if (screen === 'incall') {
       timer = setInterval(() => setSeconds(s => s + 1), 1000);
