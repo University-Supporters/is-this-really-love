@@ -26,13 +26,34 @@ const IconInsta = () => (
   </svg>
 );
 
+// --- Constants ---
+const CALLERS = {
+  female: [
+    { name: "내 사랑 ❤️", audio: "/audio/female_1.mp3", image: "/images/female_1.png" },
+    { name: "오빠", audio: "/audio/female_2.mp3", image: "/images/female_2.png" },
+    { name: "민수", audio: "/audio/female_3.mp3", image: "/images/female_3.png" }
+  ],
+  male: [
+    { name: "지연이", audio: "/audio/male_1.mp3", image: "/images/male_1.png" },
+    { name: "수진이", audio: "/audio/male_2.mp3", image: "/images/male_2.png" },
+    { name: "우리 공주님 👸", audio: "/audio/male_3.mp3", image: "/images/male_3.png" }
+  ]
+};
+
 export default function App() {
   const [screen, setScreen] = useState('selection');
-  const [config, setConfig] = useState({ os: null, gender: null });
+  const [config, setConfig] = useState({ os: null, gender: null, caller: null });
   const [seconds, setSeconds] = useState(0);
   const vibrationRef = useRef(null);
+  const audioRef = useRef(null);
 
   // --- Handlers ---
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  };
   const startVibration = () => {
     if ('vibrate' in navigator) {
       vibrationRef.current = setInterval(() => {
@@ -49,7 +70,9 @@ export default function App() {
   };
 
   const handleStart = (os, gender) => {
-    setConfig({ os, gender });
+    const callers = CALLERS[gender];
+    const randomCaller = callers[Math.floor(Math.random() * callers.length)];
+    setConfig({ os, gender, caller: randomCaller });
     setScreen('incoming');
     startVibration();
   };
@@ -57,10 +80,15 @@ export default function App() {
   const handleAccept = () => {
     stopVibration();
     setScreen('incall');
+    if (config.caller?.audio) {
+      audioRef.current = new Audio(config.caller.audio);
+      audioRef.current.play().catch(e => console.log("Audio play deferred:", e));
+    }
   };
 
   const handleDecline = () => {
     stopVibration();
+    stopAudio();
     setScreen('info');
   };
 
@@ -78,7 +106,7 @@ export default function App() {
     return `${mins}:${secs}`;
   };
 
-  const name = config.gender === 'female' ? "내 사랑 ❤️" : "지연이";
+  const name = config.caller?.name || "";
 
   return (
     <div className="app-container">
@@ -125,7 +153,11 @@ export default function App() {
       {screen === 'incall' && (
         <div className="screen in-call-screen">
           <div className="in-call-top">
-            <div className="in-call-avatar"><IconUser /></div>
+            <div className="in-call-avatar">
+              {config.caller?.image ? (
+                <img src={config.caller.image} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => e.target.style.display = 'none'} />
+              ) : <IconUser />}
+            </div>
             <h2>{name}</h2>
             <p>{formatTime(seconds)}</p>
           </div>
@@ -135,7 +167,7 @@ export default function App() {
             ))}
           </div>
           <div className="in-call-bottom">
-            <button className="hangup-btn" onClick={() => setScreen('info')}><IconPhone rotate={135} /></button>
+            <button className="hangup-btn" onClick={() => { stopAudio(); setScreen('info'); }}><IconPhone rotate={135} /></button>
           </div>
         </div>
       )}
