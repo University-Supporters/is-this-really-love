@@ -27,16 +27,17 @@ const IconInsta = () => (
 );
 
 // --- Constants ---
+const BASE = import.meta.env.BASE_URL;
 const CALLERS = {
   female: [
-    { name: "내 사랑 ❤️", audio: "audio/female_1.mp3", image: "images/female_1.png" },
-    { name: "오빠", audio: "audio/female_2.mp3", image: "images/female_2.png" },
-    { name: "민수", audio: "audio/female_3.mp3", image: "images/female_3.png" }
+    { name: "내 사랑 ❤️", audio: `${BASE}audio/female_1.mp3`, image: `${BASE}images/female_1.png` },
+    { name: "오빠", audio: `${BASE}audio/female_2.mp3`, image: `${BASE}images/female_2.png` },
+    { name: "민수", audio: `${BASE}audio/female_3.mp3`, image: `${BASE}images/female_3.png` }
   ],
   male: [
-    { name: "지연이", audio: "audio/male_1.mp3", image: "images/male_1.png" },
-    { name: "수진이", audio: "audio/male_2.mp3", image: "images/male_2.png" },
-    { name: "우리 공주님 👸", audio: "audio/male_3.mp3", image: "images/male_3.png" }
+    { name: "지연이", audio: `${BASE}audio/male_1.mp3`, image: `${BASE}images/male_1.png` },
+    { name: "수진이", audio: `${BASE}audio/male_2.mp3`, image: `${BASE}images/male_2.png` },
+    { name: "우리 공주님 👸", audio: `${BASE}audio/male_3.mp3`, image: `${BASE}images/male_3.png` }
   ]
 };
 
@@ -153,6 +154,13 @@ export default function App() {
               시작하기
             </button>
           </div>
+
+          <footer className="absolute bottom-8 w-full text-center px-4 z-10">
+            <p className="text-[10px] text-slate-500 opacity-70 leading-relaxed font-medium">
+              본 사이트에 등장하는 인물은 모두 가상의 인물이며,<br />
+              실제 녹음과 AI 사진으로 구성되어 있습니다.
+            </p>
+          </footer>
         </div>
       )}
 
