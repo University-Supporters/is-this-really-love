@@ -271,7 +271,7 @@ export default function App() {
             </div>
 
             <button 
-              onClick={() => alert("인권 서포터즈 인스타그램으로 이동합니다.")}
+              onClick={() => window.open("https://www.instagram.com/mju_humanrights?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==", "_blank")}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 text-white font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-pink-600/30 transition-all"
             >
               인권 서포터즈 인스타그램 <IconInsta />
