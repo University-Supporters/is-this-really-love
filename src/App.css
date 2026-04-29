@@ -1,0 +1,215 @@
+.app-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 1. Selection Screen */
+.selection-container {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.selection-container h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.selection-group {
+  margin: 2.5rem 0;
+  text-align: left;
+}
+
+.selection-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.8rem;
+  padding-left: 0.5rem;
+}
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.toggle-btn {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 1.2rem;
+  border-radius: 16px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.toggle-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.start-btn {
+  width: 100%;
+  padding: 1.2rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  transition: all 0.3s ease;
+}
+
+.start-btn:disabled {
+  background: #1e293b;
+  color: #475569;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 2. Incoming Call Screen */
+.ios-incoming {
+  background: black;
+  color: white;
+  padding: 80px 40px;
+  justify-content: space-between;
+}
+
+.android-incoming {
+  background: #121212;
+  color: white;
+  padding-top: 100px;
+}
+
+.ios-actions {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+}
+
+.circle-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.circle-btn:active { transform: scale(0.9); }
+.decline { background: #ff3b30; }
+.accept { background: #4cd964; }
+
+/* 3. In-Call Screen (FIXED POSITIONING) */
+.in-call-screen {
+  background: radial-gradient(circle at top, #1e293b, #0f172a);
+}
+
+/* Top: Caller Info - STABLE */
+.in-call-top {
+  position: absolute;
+  top: 80px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none; /* Keep it non-interactive to be safe */
+}
+
+.in-call-avatar {
+  width: 100px;
+  height: 100px;
+  background: #334155;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.in-call-top h2 { font-size: 1.8rem; margin-bottom: 5px; }
+.in-call-top p { color: var(--primary); font-weight: 600; font-family: monospace; }
+
+/* Middle: Visualizer - ANIMATED */
+.in-call-middle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 60px;
+}
+
+.v-bar {
+  width: 8px;
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+/* Bottom: Actions - STABLE */
+.in-call-bottom {
+  position: absolute;
+  bottom: 100px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.hangup-btn {
+  width: 80px;
+  height: 80px;
+  background: var(--danger);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px var(--danger-glow);
+}
+
+/* 4. Info Screen */
+.info-container {
+  padding: 2rem;
+  max-width: 450px;
+  overflow-y: auto;
+}
+
+.warning-box {
+  background: var(--bg-card);
+  border-left: 4px solid var(--primary);
+  padding: 1.5rem;
+  border-radius: 0 12px 12px 0;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.insta-btn {
+  width: 100%;
+  padding: 1.2rem;
+  border-radius: 16px;
+  background: linear-gradient(45deg, #f09433, #bc1888);
+  color: white;
+  font-weight: 700;
+}
