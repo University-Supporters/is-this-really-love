@@ -42,7 +42,7 @@ const CALLERS = {
 
 export default function App() {
   const [screen, setScreen] = useState('selection');
-  const [config, setConfig] = useState({ os: null, gender: null, caller: null });
+  const [config, setConfig] = useState({ os: 'ios', gender: null, caller: null });
   const [seconds, setSeconds] = useState(0);
   const vibrationRef = useRef(null);
   const audioRef = useRef(null);
@@ -70,10 +70,10 @@ export default function App() {
     }
   };
 
-  const handleStart = (os, gender) => {
+  const handleStart = (gender) => {
     const callers = CALLERS[gender];
     const randomCaller = callers[Math.floor(Math.random() * callers.length)];
-    setConfig({ os, gender, caller: randomCaller });
+    setConfig({ ...config, gender, caller: randomCaller });
     setScreen('incoming');
     startVibration();
   };
@@ -127,46 +127,27 @@ export default function App() {
 
           <div className="w-full max-w-md space-y-8">
             <div className="space-y-3">
-              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider ml-1">기기 운영체제</label>
-              <div className="grid grid-cols-2 gap-4">
-                {['ios', 'android'].map(os => (
-                  <button
-                    key={os}
-                    onClick={() => setConfig({...config, os})}
-                    className={`p-4 rounded-2xl font-bold border transition-all duration-300 backdrop-blur-md ${
-                      config.os === os 
-                      ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.4)] text-white' 
-                      : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-700/50'
-                    }`}
-                  >
-                    {os.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider ml-1">버전 선택</label>
+              <label className="text-sm font-bold text-slate-500 uppercase tracking-wider ml-1 text-center block">당신의 성별은?</label>
               <div className="grid grid-cols-2 gap-4">
                 {['female', 'male'].map(g => (
                   <button
                     key={g}
                     onClick={() => setConfig({...config, gender: g})}
-                    className={`p-4 rounded-2xl font-bold border transition-all duration-300 backdrop-blur-md ${
+                    className={`p-6 rounded-2xl font-bold border transition-all duration-300 backdrop-blur-md text-lg ${
                       config.gender === g 
                       ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.4)] text-white' 
                       : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-700/50'
                     }`}
                   >
-                    {g === 'female' ? '여성 버전' : '남성 버전'}
+                    {g === 'female' ? '여성' : '남성'}
                   </button>
                 ))}
               </div>
             </div>
 
             <button 
-              disabled={!config.os || !config.gender}
-              onClick={() => handleStart(config.os, config.gender)}
+              disabled={!config.gender}
+              onClick={() => handleStart(config.gender)}
               className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale disabled:hover:scale-100"
             >
               시작하기
