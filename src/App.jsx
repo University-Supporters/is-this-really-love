@@ -29,14 +29,14 @@ const IconInsta = () => (
 // --- Constants ---
 const CALLERS = {
   female: [
-    { name: "내 사랑 ❤️", audio: "/audio/female_1.mp3", image: "/images/female_1.png" },
-    { name: "오빠", audio: "/audio/female_2.mp3", image: "/images/female_2.png" },
-    { name: "민수", audio: "/audio/female_3.mp3", image: "/images/female_3.png" }
+    { name: "내 사랑 ❤️", audio: "audio/female_1.mp3", image: "images/female_1.png" },
+    { name: "오빠", audio: "audio/female_2.mp3", image: "images/female_2.png" },
+    { name: "민수", audio: "audio/female_3.mp3", image: "images/female_3.png" }
   ],
   male: [
-    { name: "지연이", audio: "/audio/male_1.mp3", image: "/images/male_1.png" },
-    { name: "수진이", audio: "/audio/male_2.mp3", image: "/images/male_2.png" },
-    { name: "우리 공주님 👸", audio: "/audio/male_3.mp3", image: "/images/male_3.png" }
+    { name: "지연이", audio: "audio/male_1.mp3", image: "images/male_1.png" },
+    { name: "수진이", audio: "audio/male_2.mp3", image: "images/male_2.png" },
+    { name: "우리 공주님 👸", audio: "audio/male_3.mp3", image: "images/male_3.png" }
   ]
 };
 
