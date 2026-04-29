@@ -227,40 +227,57 @@ header p {
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: center;
     background: radial-gradient(circle at top, #1e293b, #0f172a);
+    padding: 80px 0 100px 0;
+}
+
+.caller-info {
+    flex-shrink: 0;
+    text-align: center;
 }
 
 .caller-avatar {
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
     background: #334155;
     border-radius: 50%;
-    margin-bottom: 20px;
+    margin: 0 auto 20px;
     display: flex;
     justify-content: center;
     align-items: center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
 }
 
-.caller-avatar::after {
-    content: "👤";
-    font-size: 3rem;
+.audio-visualizer {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
 .visualizer-bar {
     display: inline-block;
-    width: 8px;
-    height: 20px;
+    width: 6px;
+    height: 15px;
     background: var(--primary-color);
     margin: 0 4px;
-    border-radius: 4px;
-    animation: wave 1s infinite ease-in-out;
+    border-radius: 3px;
+    animation: wave 0.8s infinite ease-in-out;
 }
 
 @keyframes wave {
-    0%, 100% { height: 20px; }
-    50% { height: 60px; }
+    0%, 100% { height: 15px; transform: scaleY(1); opacity: 0.5; }
+    50% { height: 50px; transform: scaleY(1.5); opacity: 1; }
+}
+
+.call-actions {
+    flex-shrink: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
 .end-call-btn {
