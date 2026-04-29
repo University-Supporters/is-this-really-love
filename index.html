@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>이게 정말 사랑일까? | 대학교 인권 서포터즈</title>
+    <meta name="description" content="스토킹 및 교제폭력 예방을 위한 가상 체험 웹사이트입니다.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts: Inter and Pretentard are great for premium feel -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- 1. Selection Screen -->
+        <section id="screen-selection" class="screen active">
+            <div class="container">
+                <header class="fade-in">
+                    <h1>체험 시작하기</h1>
+                    <p>당신의 환경과 버전을 선택해주세요.</p>
+                </header>
+                
+                <div class="selection-group fade-in" style="animation-delay: 0.2s">
+                    <label>기기 운영체제</label>
+                    <div class="toggle-buttons" id="os-selection">
+                        <button type="button" data-value="ios" id="btn-ios">iOS</button>
+                        <button type="button" data-value="android" id="btn-android">Android</button>
+                    </div>
+                </div>
+
+                <div class="selection-group fade-in" style="animation-delay: 0.4s">
+                    <label>버전 선택</label>
+                    <div class="toggle-buttons" id="gender-selection">
+                        <button type="button" data-value="female" id="btn-female">여성 버전</button>
+                        <button type="button" data-value="male" id="btn-male">남성 버전</button>
+                    </div>
+                </div>
+
+                <div class="action-area fade-in" style="animation-delay: 0.6s">
+                    <button id="btn-start" disabled>시작하기</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Incoming Call Screen (Dynamic) -->
+        <section id="screen-incoming-call" class="screen">
+            <div id="call-ui-container">
+                <!-- Content will be injected via JS based on OS -->
+            </div>
+        </section>
+
+        <!-- 3. In-Call Screen -->
+        <section id="screen-in-call" class="screen">
+            <div class="in-call-container">
+                <div class="caller-info">
+                    <div class="caller-avatar"></div>
+                    <h2 id="in-call-name">알 수 없는 번호</h2>
+                    <p id="call-timer">00:00</p>
+                </div>
+                
+                <div class="audio-visualizer">
+                    <!-- Audio playback frame -->
+                    <div class="visualizer-bar"></div>
+                    <div class="visualizer-bar"></div>
+                    <div class="visualizer-bar"></div>
+                </div>
+
+                <div class="call-actions">
+                    <button id="btn-end-call" class="end-call-btn">
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M12,9c-1.6,0-3.15,0.25-4.6,0.74c-0.45,0.15-0.9,0.26-1.4,0.26c-0.5,0-1-0.21-1.41-0.62L2.7,7.5C2.25,7.05,2,6.43,2,5.77 c0-0.67,0.26-1.28,0.7-1.72C5.1,1.65,8.42,0.5,12,0.5s6.9,1.15,9.3,3.55c0.44,0.44,0.7,1.05,0.7,1.72c0,0.66-0.25,1.28-0.7,1.72 l-1.89,1.89c-0.41,0.41-0.91,0.62-1.41,0.62c-0.5,0-0.95-0.11-1.4-0.26C15.15,9.25,13.6,9,12,9z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Post-Call Info Screen -->
+        <section id="screen-info" class="screen">
+            <div class="container scrollable">
+                <div class="info-content fade-in">
+                    <div class="warning-icon">⚠️</div>
+                    <h2>이것은 실제 상황일 수 있습니다.</h2>
+                    <div class="message-box">
+                        <p><strong>스토킹과 교제폭력</strong>은 단순히 개인의 문제가 아닌 명백한 범죄입니다.</p>
+                        <p>상대의 의사에 반해 지속적으로 연락하거나 찾아오는 행위, 통제하려고 하는 모든 시도는 폭력의 시작일 수 있습니다.</p>
+                    </div>
+                    
+                    <div class="stats-card">
+                        <h3>도움이 필요하신가요?</h3>
+                        <ul>
+                            <li>경찰청: 112</li>
+                            <li>여성긴급전화: 1366</li>
+                        </ul>
+                    </div>
+
+                    <div class="action-links">
+                        <!-- Instagram Button (Link to be added) -->
+                        <button id="btn-instagram" class="insta-btn">
+                            인권 서포터즈 인스타그램 방문하기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+:root {
+    --primary-color: #6366f1;
+    --danger-color: #ef4444;
+    --success-color: #22c55e;
+    --bg-dark: #0f172a;
+    --text-light: #f8fafc;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --font-main: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+    color: var(--text-light);
+    font-family: var(--font-main);
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-dark);
+}
+
+.screen.active {
+    display: flex;
+}
+
+.container {
+    width: 100%;
+    max-width: 450px;
+    padding: 2rem;
+    text-align: center;
+}
+
+.scrollable {
+    overflow-y: auto;
+    display: block !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.8s ease forwards;
+}
+
+/* 1. Selection Screen */
+h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+header p {
+    color: #94a3b8;
+    margin-bottom: 3rem;
+}
+
+.selection-group {
+    width: 100%;
+    margin-bottom: 2.5rem;
+    text-align: left;
+}
+
+.selection-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.75rem;
+    padding-left: 0.5rem;
+}
+
+.toggle-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.toggle-buttons button {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-light);
+    padding: 1.2rem;
+    border-radius: 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.toggle-buttons button.selected {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    transform: scale(1.02);
+}
+
+#btn-start {
+    width: 100%;
+    padding: 1.2rem;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#btn-start:disabled {
+    background: #1e293b;
+    color: #475569;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* 2. Incoming Call Screen UI */
+#call-ui-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* iOS Incoming Call */
+.ios-call {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 80px 40px;
+}
+
+.ios-call .caller-name {
+    font-size: 2rem;
+    font-weight: 400;
+    margin-bottom: 8px;
+}
+
+.ios-call .call-status {
+    color: #999;
+    font-size: 1.1rem;
+}
+
+.ios-call .actions {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+}
+
+.ios-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.ios-btn.decline { background: #ff3b30; color: white; }
+.ios-btn.accept { background: #4cd964; color: white; }
+
+/* Android Incoming Call */
+.android-call {
+    width: 100%;
+    height: 100%;
+    background: #121212;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 100px;
+}
+
+.android-call .caller-id {
+    text-align: center;
+}
+
+.android-call h2 { font-size: 1.8rem; margin-bottom: 10px; }
+
+.android-call .swipe-area {
+    position: absolute;
+    bottom: 100px;
+    width: 80%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* 3. In-Call UI */
+.in-call-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    background: radial-gradient(circle at top, #1e293b, #0f172a);
+}
+
+.caller-avatar {
+    width: 120px;
+    height: 120px;
+    background: #334155;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.caller-avatar::after {
+    content: "👤";
+    font-size: 3rem;
+}
+
+.visualizer-bar {
+    display: inline-block;
+    width: 8px;
+    height: 20px;
+    background: var(--primary-color);
+    margin: 0 4px;
+    border-radius: 4px;
+    animation: wave 1s infinite ease-in-out;
+}
+
+@keyframes wave {
+    0%, 100% { height: 20px; }
+    50% { height: 60px; }
+}
+
+.end-call-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--danger-color);
+    border: none;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
+}
+
+/* 4. Info Screen */
+.info-content {
+    padding: 40px 20px;
+    text-align: left;
+}
+
+.warning-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.message-box {
+    background: var(--glass-bg);
+    border-left: 4px solid var(--primary-color);
+    padding: 20px;
+    margin-bottom: 30px;
+    border-radius: 0 12px 12px 0;
+}
+
+.message-box p {
+    margin-bottom: 15px;
+    line-height: 1.6;
+    color: #cbd5e1;
+}
+
+.stats-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 24px;
+    border-radius: 20px;
+    margin-bottom: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.stats-card h3 { margin-bottom: 15px; color: #818cf8; }
+.stats-card ul { list-style: none; }
+.stats-card li { margin-bottom: 10px; font-weight: 600; }
+
+.insta-btn {
+    width: 100%;
+    padding: 1.2rem;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+}
