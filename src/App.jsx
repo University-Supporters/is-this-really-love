@@ -26,9 +26,23 @@ const IconInsta = () => (
   </svg>
 );
 
+// --- Constants ---
+const CALLERS = {
+  female: [
+    { name: "내 사랑 ❤️", audio: "female_1" },
+    { name: "오빠", audio: "female_2" },
+    { name: "민수", audio: "female_3" }
+  ],
+  male: [
+    { name: "지연이", audio: "male_1" },
+    { name: "수진이", audio: "male_2" },
+    { name: "우리 공주님 👸", audio: "male_3" }
+  ]
+};
+
 export default function App() {
   const [screen, setScreen] = useState('selection');
-  const [config, setConfig] = useState({ os: null, gender: null });
+  const [config, setConfig] = useState({ os: null, gender: null, caller: null });
   const [seconds, setSeconds] = useState(0);
   const vibrationRef = useRef(null);
 
@@ -49,7 +63,9 @@ export default function App() {
   };
 
   const handleStart = (os, gender) => {
-    setConfig({ os, gender });
+    const callers = CALLERS[gender];
+    const randomCaller = callers[Math.floor(Math.random() * callers.length)];
+    setConfig({ os, gender, caller: randomCaller });
     setScreen('incoming');
     startVibration();
   };
@@ -78,7 +94,7 @@ export default function App() {
     return `${mins}:${secs}`;
   };
 
-  const name = config.gender === 'female' ? "내 사랑 ❤️" : "지연이";
+  const name = config.caller?.name || "";
 
   return (
     <div className="app-container">
