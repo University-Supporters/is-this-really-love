@@ -317,101 +317,111 @@ export default function App() {
 
       {/* --- 5. Info Screen --- */}
       {screen === 'info' && (
-        <div className="flex flex-col items-center justify-center h-full px-6 py-10 animate-slide-up overflow-y-auto custom-scrollbar">
-          <div className="bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-[32px] p-6 w-full max-w-lg shadow-2xl space-y-6 my-auto">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mb-4">
-                <IconAlert />
-              </div>
-              <h2 className="text-xl font-black mb-2 leading-tight break-keep">
-                이것은 실제 상황일 수 있습니다.
-              </h2>
-              <div className="bg-slate-900/50 p-4 rounded-2xl text-left border-l-4 border-indigo-500 break-keep w-full">
-                <p className="text-base leading-relaxed mb-2">
-                  <strong>스토킹과 교제폭력</strong>은 사랑이 아닙니다.
-                </p>
-                <p className="text-slate-400 text-xs sm:text-sm">
-                  상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
-                </p>
-              </div>
+        <div className="h-full overflow-y-auto bg-slate-950 scroll-smooth custom-scrollbar">
+          {/* Hero Section */}
+          <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center animate-fade-in">
+            <div className="w-24 h-24 bg-indigo-500/10 rounded-[2rem] flex items-center justify-center mb-10 rotate-6 shadow-2xl border border-indigo-500/20">
+              <IconAlert />
             </div>
+            <h2 className="text-3xl sm:text-4xl font-black mb-8 leading-tight break-keep bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
+              이것은 실제 상황일 수 있습니다.
+            </h2>
+            <div className="bg-indigo-600/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl animate-slide-up">
+              <p className="text-xl sm:text-2xl font-bold mb-4 leading-tight">
+                <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
+              </p>
+              <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+                상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
+              </p>
+            </div>
+            
+            {/* Scroll Indicator */}
+            <div className="mt-16 animate-bounce opacity-50">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 13 5 5 5-5M7 6l5 5 5-5"/></svg>
+            </div>
+          </div>
 
+          <div className="max-w-lg mx-auto px-6 pb-24 space-y-12">
             {/* 법적 처벌 안내 */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm uppercase tracking-wider">
-                <IconScale /> <span>스토킹 처벌법 (2024~2026 개정)</span>
+            <div className="space-y-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+              <div className="flex items-center gap-3 text-indigo-400 font-black text-lg uppercase tracking-tighter">
+                <div className="p-2 bg-indigo-500/10 rounded-lg"><IconScale /></div>
+                <span>처벌 규정</span>
               </div>
-              <div className="grid gap-2 text-[13px]">
-                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                  <span className="text-indigo-300 font-bold block mb-1">일반 스토킹</span>
-                  <p className="text-slate-300">3년 이하의 징역 또는 3,000만 원 이하의 벌금</p>
+              <div className="grid gap-3">
+                <div className="bg-slate-900/50 backdrop-blur-md p-5 rounded-3xl border border-white/5 hover:border-indigo-500/30 transition-colors">
+                  <span className="text-indigo-300 font-bold block mb-2 text-sm uppercase tracking-widest">일반 스토킹</span>
+                  <p className="text-lg font-medium text-slate-200 leading-snug">3년 이하의 징역 또는<br/>3,000만 원 이하의 벌금</p>
                 </div>
-                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                  <span className="text-red-400 font-bold block mb-1">흉기 등 위험한 물건 소지 시</span>
-                  <p className="text-slate-300">5년 이하의 징역 또는 5,000만 원 이하의 벌금</p>
+                <div className="bg-red-500/5 backdrop-blur-md p-5 rounded-3xl border border-red-500/10 hover:border-red-500/30 transition-colors">
+                  <span className="text-red-400 font-bold block mb-2 text-sm uppercase tracking-widest">흉기 등 위험한 물건 소지</span>
+                  <p className="text-lg font-medium text-slate-200 leading-snug">5년 이하의 징역 또는<br/>5,000만 원 이하의 벌금</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
-                    <span className="text-indigo-300 font-bold block mb-1">반의사불벌죄 폐지</span>
-                    <p className="text-slate-400 text-[11px] leading-tight">피해자 의사와 상관없이 처벌</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5">
+                    <span className="text-indigo-300 font-bold block mb-2 text-xs uppercase tracking-widest">반의사불벌죄 폐지</span>
+                    <p className="text-slate-400 text-xs leading-relaxed font-medium">피해자 의사와 상관없이 형사 처벌 진행</p>
                   </div>
-                  <div className="bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
-                    <span className="text-indigo-300 font-bold block mb-1">온라인 스토킹 포함</span>
-                    <p className="text-slate-400 text-[11px] leading-tight">SNS, 문자, 이메일 괴롭힘 대상</p>
+                  <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5">
+                    <span className="text-indigo-300 font-bold block mb-2 text-xs uppercase tracking-widest">온라인 스토킹</span>
+                    <p className="text-slate-400 text-xs leading-relaxed font-medium">SNS, 메신저를 통한 지속적 괴롭힘 포함</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* 도움 받을 수 있는 곳 */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm uppercase tracking-wider">
-                <IconPhoneHelp />
-                <span>도움이 필요하신가요?</span>
+            <div className="space-y-6 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+              <div className="flex items-center gap-3 text-emerald-400 font-black text-lg uppercase tracking-tighter">
+                <div className="p-2 bg-emerald-500/10 rounded-lg"><IconPhoneHelp /></div>
+                <span>긴급 도움 요청</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[12px]">
-                <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
-                  <p className="text-slate-500 mb-1">경찰청</p>
-                  <p className="font-bold text-lg">112</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5 group active:scale-95 transition-all">
+                  <p className="text-slate-500 text-xs font-bold mb-2 uppercase tracking-widest">경찰청</p>
+                  <p className="font-black text-3xl text-white">112</p>
                 </div>
-                <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
-                  <p className="text-slate-500 mb-1">여성긴급전화</p>
-                  <p className="font-bold text-lg">1366</p>
+                <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5 group active:scale-95 transition-all">
+                  <p className="text-slate-500 text-xs font-bold mb-2 uppercase tracking-widest">여성긴급전화</p>
+                  <p className="font-black text-3xl text-white">1366</p>
                 </div>
-                <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5 col-span-2">
-                  <p className="text-slate-500 mb-1">스토킹/교제폭력 피해대응센터</p>
-                  <p className="font-bold text-base">02-735-8206</p>
+                <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5 col-span-2">
+                  <p className="text-slate-500 text-xs font-bold mb-2 uppercase tracking-widest">스토킹/교제폭력 피해대응센터</p>
+                  <p className="font-bold text-xl text-white">02-735-8206</p>
                 </div>
-                <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 col-span-2">
-                  <p className="text-emerald-400 font-bold mb-1">경기도젠더폭력통합대응단</p>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-slate-300 text-[11px]">핫라인: 010-2989-7722</p>
-                      <p className="text-slate-300 text-[11px]">상담: 031-1366</p>
+                <div className="bg-emerald-500/5 backdrop-blur-md p-6 rounded-[2.5rem] border border-emerald-500/10 col-span-2 relative overflow-hidden group">
+                  <div className="relative z-10">
+                    <p className="text-emerald-400 font-black text-sm mb-3 uppercase tracking-widest">경기도젠더폭력통합대응단</p>
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                        <p className="text-slate-300 font-medium">핫라인: <span className="text-white font-bold">010-2989-7722</span></p>
+                        <p className="text-slate-300 font-medium">상담센터: <span className="text-white font-bold">031-1366</span></p>
+                      </div>
+                      <button
+                        onClick={() => window.open("https://www.majubom.kr/web/main/main.php", "_blank")}
+                        className="bg-emerald-600 hover:bg-emerald-500 w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg shadow-emerald-600/20 active:scale-90"
+                      >
+                        <IconLink />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => window.open("https://www.majubom.kr/web/main/main.php", "_blank")}
-                      className="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-lg transition-colors"
-                    >
-                      <IconLink />
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            {/* Final Actions */}
+            <div className="flex flex-col gap-4 pt-8 animate-slide-up" style={{ animationDelay: '0.6s' }}>
               <button
                 onClick={() => window.open("https://www.instagram.com/mju_humanrights?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==", "_blank")}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 text-white font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-pink-600/30 transition-all text-sm"
+                className="w-full py-5 rounded-3xl bg-gradient-to-br from-orange-500 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center gap-3 shadow-2xl shadow-pink-600/20 hover:scale-[1.02] active:scale-95 transition-all"
               >
                 인권 서포터즈 인스타그램 <IconInsta />
               </button>
               <button
                 onClick={() => setScreen('selection')}
-                className="w-full py-2 text-slate-500 font-bold hover:text-slate-300 transition-colors text-xs"
+                className="w-full py-4 text-slate-500 font-bold hover:text-slate-300 transition-colors text-sm uppercase tracking-widest"
               >
-                다시 시작하기
+                시작 화면으로 돌아가기
               </button>
             </div>
           </div>
