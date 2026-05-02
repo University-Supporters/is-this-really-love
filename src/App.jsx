@@ -26,6 +26,24 @@ const IconInsta = () => (
   </svg>
 );
 
+const IconScale = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /><path d="M7 21h10" /><path d="M12 3v18" /><path d="M3 7h18" />
+  </svg>
+);
+
+const IconLink = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+);
+
+const IconPhoneHelp = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.27-2.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
 // --- Constants ---
 const BASE = import.meta.env.BASE_URL;
 const CALLERS = {
@@ -299,39 +317,103 @@ export default function App() {
 
       {/* --- 5. Info Screen --- */}
       {screen === 'info' && (
-        <div className="flex flex-col items-center justify-center h-full px-8 animate-slide-up">
-          <div className="bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 w-full max-w-lg shadow-2xl">
-            <div className="flex flex-col items-center text-center mb-8">
-              <div className="w-20 h-20 bg-indigo-500/20 rounded-full flex items-center justify-center mb-6">
+        <div className="flex flex-col items-center justify-center h-full px-6 py-10 animate-slide-up overflow-y-auto custom-scrollbar">
+          <div className="bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-[32px] p-6 w-full max-w-lg shadow-2xl space-y-6 my-auto">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mb-4">
                 <IconAlert />
               </div>
-              <h2 className="text-2xl font-black mb-4 leading-tight break-keep">
+              <h2 className="text-xl font-black mb-2 leading-tight break-keep">
                 이것은 실제 상황일 수 있습니다.
               </h2>
-
-              <div className="bg-slate-900/50 p-6 rounded-2xl text-left border-l-4 border-indigo-500 break-keep">
-                <p className="text-lg leading-relaxed mb-4">
-                  <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
+              <div className="bg-slate-900/50 p-4 rounded-2xl text-left border-l-4 border-indigo-500 break-keep w-full">
+                <p className="text-base leading-relaxed mb-2">
+                  <strong>스토킹과 교제폭력</strong>은 사랑이 아닙니다.
                 </p>
-                <p className="text-slate-400 text-sm sm:text-base">
+                <p className="text-slate-400 text-xs sm:text-sm">
                   상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => window.open("https://www.instagram.com/mju_humanrights?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==", "_blank")}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 text-white font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-pink-600/30 transition-all"
-            >
-              인권 서포터즈 인스타그램 <IconInsta />
-            </button>
+            {/* 법적 처벌 안내 */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm uppercase tracking-wider">
+                <IconScale /> <span>스토킹 처벌법 (2024~2026 개정)</span>
+              </div>
+              <div className="grid gap-2 text-[13px]">
+                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <span className="text-indigo-300 font-bold block mb-1">일반 스토킹</span>
+                  <p className="text-slate-300">3년 이하의 징역 또는 3,000만 원 이하의 벌금</p>
+                </div>
+                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <span className="text-red-400 font-bold block mb-1">흉기 등 위험한 물건 소지 시</span>
+                  <p className="text-slate-300">5년 이하의 징역 또는 5,000만 원 이하의 벌금</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
+                    <span className="text-indigo-300 font-bold block mb-1">반의사불벌죄 폐지</span>
+                    <p className="text-slate-400 text-[11px] leading-tight">피해자 의사와 상관없이 처벌</p>
+                  </div>
+                  <div className="bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
+                    <span className="text-indigo-300 font-bold block mb-1">온라인 스토킹 포함</span>
+                    <p className="text-slate-400 text-[11px] leading-tight">SNS, 문자, 이메일 괴롭힘 대상</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            <button
-              onClick={() => setScreen('selection')}
-              className="w-full mt-4 py-3 text-slate-500 font-bold hover:text-slate-300 transition-colors"
-            >
-              다시 시작하기
-            </button>
+            {/* 도움 받을 수 있는 곳 */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm uppercase tracking-wider">
+                <IconPhoneHelp />
+                <span>도움이 필요하신가요?</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
+                <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
+                  <p className="text-slate-500 mb-1">경찰청</p>
+                  <p className="font-bold text-lg">112</p>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
+                  <p className="text-slate-500 mb-1">여성긴급전화</p>
+                  <p className="font-bold text-lg">1366</p>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5 col-span-2">
+                  <p className="text-slate-500 mb-1">스토킹/교제폭력 피해대응센터</p>
+                  <p className="font-bold text-base">02-735-8206</p>
+                </div>
+                <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 col-span-2">
+                  <p className="text-emerald-400 font-bold mb-1">경기도젠더폭력통합대응단</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-slate-300 text-[11px]">핫라인: 010-2989-7722</p>
+                      <p className="text-slate-300 text-[11px]">상담: 031-1366</p>
+                    </div>
+                    <button
+                      onClick={() => window.open("https://www.majubom.kr/web/main/main.php", "_blank")}
+                      className="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-lg transition-colors"
+                    >
+                      <IconLink />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => window.open("https://www.instagram.com/mju_humanrights?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==", "_blank")}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 text-white font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-pink-600/30 transition-all text-sm"
+              >
+                인권 서포터즈 인스타그램 <IconInsta />
+              </button>
+              <button
+                onClick={() => setScreen('selection')}
+                className="w-full py-2 text-slate-500 font-bold hover:text-slate-300 transition-colors text-xs"
+              >
+                다시 시작하기
+              </button>
+            </div>
           </div>
         </div>
       )}
