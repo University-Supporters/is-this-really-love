@@ -397,10 +397,6 @@ export default function App() {
                   <p className="text-slate-500 text-xs font-bold mb-2 uppercase tracking-widest">여성긴급전화</p>
                   <p className="font-black text-3xl text-white">1366</p>
                 </div>
-                <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5 col-span-2">
-                  <p className="text-slate-500 text-xs font-bold mb-2 uppercase tracking-widest">스토킹/교제폭력 피해대응센터</p>
-                  <p className="font-bold text-xl text-white">02-735-8206</p>
-                </div>
                 <div className="bg-emerald-500/5 backdrop-blur-md p-6 rounded-[2.5rem] border border-emerald-500/10 col-span-2 relative overflow-hidden group">
                   <div className="relative z-10">
                     <p className="text-emerald-400 font-black text-sm mb-3 uppercase tracking-widest">경기도젠더폭력통합대응단</p>
