@@ -64,6 +64,30 @@ export default function App() {
     }
   };
 
+  const playStaticNoise = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(100, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(10, ctx.currentTime + 0.5);
+
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 1);
+    } catch (e) {
+      console.log("AudioContext not supported or blocked:", e);
+    }
+  };
+
   const stopVibration = () => {
     if (vibrationRef.current) {
       clearInterval(vibrationRef.current);
@@ -95,7 +119,17 @@ export default function App() {
   const handleDecline = () => {
     stopVibration();
     stopAudio();
-    setScreen('info');
+    handleHangup();
+  };
+
+  const handleHangup = () => {
+    stopAudio();
+    playStaticNoise();
+    setScreen('ending');
+    // Impactful delay before showing the info screen
+    setTimeout(() => {
+      setScreen('info');
+    }, 1200);
   };
 
   useEffect(() => {
@@ -241,7 +275,7 @@ export default function App() {
 
           <div className="mb-10">
             <button
-              onClick={() => { stopAudio(); setScreen('info'); }}
+              onClick={handleHangup}
               className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center shadow-[0_0_40px_rgba(220,38,38,0.4)] hover:scale-110 active:scale-90 transition-transform"
             >
               <IconPhone rotate={135} />
@@ -250,7 +284,20 @@ export default function App() {
         </div>
       )}
 
-      {/* --- 4. Info Screen --- */}
+      {/* --- 4. Transition/Ending Screen --- */}
+      {screen === 'ending' && (
+        <div className="flex flex-col items-center justify-center h-full bg-black overflow-hidden relative">
+          <div className="absolute inset-0 bg-red-900/20 animate-pulse-red"></div>
+          <div className="z-10 text-white font-mono text-xl animate-glitch tracking-widest uppercase">
+            Connection Terminated
+          </div>
+          <div className="absolute top-1/2 left-0 w-full h-px bg-white/30 animate-shake"></div>
+          <div className="absolute top-1/3 left-0 w-full h-2 bg-red-600/20 animate-glitch" style={{ animationDelay: '0.1s' }}></div>
+          <div className="absolute bottom-1/4 left-0 w-full h-1 bg-indigo-600/20 animate-glitch" style={{ animationDelay: '0.3s' }}></div>
+        </div>
+      )}
+
+      {/* --- 5. Info Screen --- */}
       {screen === 'info' && (
         <div className="flex flex-col items-center justify-center h-full px-8 animate-slide-up">
           <div className="bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 w-full max-w-lg shadow-2xl">
