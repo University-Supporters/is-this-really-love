@@ -4,18 +4,23 @@
 - **Base Branch**: 원칙적으로 `main` 브랜치에서 직접 작업하거나 커밋하는 것을 금지한다.
 - **Feature Branch**: 모든 일반 작업은 반드시 별도의 브랜치를 생성하여 진행한다.
 - **Naming Convention**: `BE-전기헌-(이슈번호)` 형식을 엄수한다.
-- **Standard Workflow**: 
+- **Workflow**: 
   1. 작업 시작 전 이슈 번호를 식별하고, 모를 경우 사용자에게 질문한다.
   2. `git checkout -b BE-전기헌-(번호)`를 실행한 뒤 작업을 시작한다.
 
-## 2. Special Command: #바로 (Fast-Track)
-- **Definition**: 별도의 브랜치 생성이나 PR 절차 없이 즉시 `main`에 반영하고 싶을 때 사용한다.
+## 2. Special Command: #바로 (Ultra Fast-Track)
+- **Definition**: 긴급 수정 및 즉시 반영을 위해 사용한다.
 - **Execution Flow**:
-  1. 현재 브랜치에서 변경 사항을 즉시 커밋한다. (보안 및 테스트 검사 필수)
-  2. 작업 중인 브랜치가 `main`이 아닐 경우, `main` 브랜치로 체크아웃 후 해당 작업을 `merge` 한다.
-  3. 모든 과정이 완료되면 사용자에게 보고하고 Push 승인을 요청한다.
+  1. 현재 브랜치에서 변경 사항을 커밋한다. (보안 및 테스트 검증 필수)
+  2. `main` 브랜치로 체크아웃 후 해당 작업을 `merge` 한다.
+  3. **[SKIP CONFIRMATION]**: 사용자의 승인을 기다리지 않고 즉시 원격 저장소(`main`)로 `push`를 실행한다.
+  4. 모든 과정이 완료되면 최종 결과만 보고한다.
 
-## 3. Commit Message Convention
+## 3. README.md Modification Rule
+- **Template Adherence**: `README.md` 파일을 수정할 때는 반드시 프로젝트 내 정의된 **기존 양식(템플릿)과 스타일**을 엄격히 따른다.
+- **Consistency**: 임의로 구조를 변경하지 않으며, 새로운 섹션을 추가할 때도 기존 마크다운 서식(Heading Level, 표 형식 등)과의 통일성을 유지해야 한다.
+
+## 4. Commit Message Convention
 - **Format**: `{이모지} {태그}: {작업 내용} 구현`
 - **Mapping Table**:
 
@@ -40,12 +45,10 @@
 | **Remove** | ➖ | :heavy_minus_sign: | 의존성 제거 |
 | **Gitignore** | 🙈 | :see_no_evil: | .gitignore 파일 추가 및 수정 |
 
-## 4. Automation & Security Protocols
+## 5. Automation & Security Protocols
 1. **작업 대기**: 에이전트는 파일 수정을 완료해도 스스로 커밋하지 않는다.
 2. **명령어 처리**: 
-   - **`#커밋` 입력 시**: 현재 브랜치에서 보안/테스트 검증 후 커밋을 수행한다.
-   - **`#바로` 입력 시**: 보안/테스트 검증 후 즉시 커밋하고 `main` 브랜치로 머지(Merge)를 시도한다.
+   - **`#커밋` 입력 시**: 보안/테스트 검증 -> 커밋 수행 -> **Push 승인 요청**.
+   - **`#바로` 입력 시**: 보안/테스트 검증 -> 커밋 수행 -> main 머지 -> **즉시 Push (승인 생략)**.
 3. **보안 검사**: 커밋 전 코드 내 민감 정보(API Key, Token 등) 노출 여부를 확인하고 발견 시 즉시 중단한다.
 4. **테스트 검증**: `./gradlew test` 등 설정된 테스트를 실행하여 성공 시에만 다음 단계를 진행한다.
-5. **Push 엄격 제한**: 모든 과정이 끝나도 사용자의 **명시적 승인 없이 `git push` 하지 않는다.**
-6. **최종 보고**: 작업 완료 후 요약 보고와 함께 "Push를 진행할까요?"라고 질문한다.
