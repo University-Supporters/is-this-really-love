@@ -113,6 +113,17 @@ export default function App() {
     }
   };
 
+  const triggerFullscreen = () => {
+    const doc = window.document.documentElement;
+    const requestFullScreen = doc.requestFullscreen || doc.mozRequestFullScreen || doc.webkitRequestFullScreen || doc.msRequestFullscreen;
+
+    if (requestFullScreen) {
+      requestFullScreen.call(doc).catch(err => {
+        console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    }
+  };
+
   const handleStart = (gender) => {
     const callers = CALLERS[gender];
     const randomIndex = Math.floor(Math.random() * callers.length);
@@ -123,6 +134,7 @@ export default function App() {
     setConfig(prev => ({ ...prev, gender, caller: randomCaller }));
     setScreen('incoming');
     startVibration();
+    triggerFullscreen();
   };
 
   const handleAccept = () => {
