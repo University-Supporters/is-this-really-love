@@ -149,7 +149,8 @@ export default function App() {
   const handleDecline = () => {
     stopVibration();
     stopAudio();
-    handleHangup();
+    // Go directly to info screen without the 'ending' animation
+    setScreen('info');
   };
 
   const handleHangup = () => {
@@ -188,6 +189,39 @@ export default function App() {
   };
 
   const name = config.caller?.name || "";
+
+  // --- Scroll Animation Component ---
+  const AnimatedSection = ({ children, className = "", delay = "0s" }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.unobserve(entry.target);
+          }
+        },
+        { threshold: 0.1 }
+      );
+
+      if (ref.current) observer.observe(ref.current);
+      return () => {
+        if (ref.current) observer.unobserve(ref.current);
+      };
+    }, []);
+
+    return (
+      <div
+        ref={ref}
+        className={`${className} transition-all duration-700 ${isVisible ? 'animate-slide-up' : 'opacity-0 translate-y-10'}`}
+        style={{ animationDelay: delay }}
+      >
+        {children}
+      </div>
+    );
+  };
 
   return (
     <div className="relative w-full h-screen bg-[#0f172a] text-slate-100 overflow-hidden font-sans selection:bg-indigo-500/30">
@@ -355,7 +389,7 @@ export default function App() {
 
           <div className="max-w-lg mx-auto px-6 pb-24 space-y-12">
             {/* 법적 처벌 안내 */}
-            <div className="space-y-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <AnimatedSection className="space-y-6">
               <div className="flex items-center gap-3 text-indigo-400 font-black text-lg uppercase tracking-tighter">
                 <div className="p-2 bg-indigo-500/10 rounded-lg"><IconScale /></div>
                 <span>처벌 규정</span>
@@ -369,21 +403,23 @@ export default function App() {
                   <span className="text-red-400 font-bold block mb-2 text-sm uppercase tracking-widest">흉기 등 위험한 물건 소지</span>
                   <p className="text-lg font-medium text-slate-200 leading-snug">5년 이하의 징역 또는<br/>5,000만 원 이하의 벌금</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5">
-                    <span className="text-indigo-300 font-bold block mb-2 text-xs uppercase tracking-widest">반의사불벌죄 폐지</span>
-                    <p className="text-slate-400 text-xs leading-relaxed font-medium">피해자 의사와 상관없이 형사 처벌 진행</p>
+                
+                {/* 반의사불벌죄 & 온라인 스토킹 - Adjusted for better readability */}
+                <div className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 space-y-4">
+                  <div>
+                    <span className="text-indigo-300 font-bold block mb-1 text-sm uppercase tracking-widest">반의사불벌죄 폐지</span>
+                    <p className="text-slate-400 text-sm leading-relaxed font-medium">피해자의 의사와 상관없이 형사 처벌이 진행됩니다.</p>
                   </div>
-                  <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5">
-                    <span className="text-indigo-300 font-bold block mb-2 text-xs uppercase tracking-widest">온라인 스토킹</span>
-                    <p className="text-slate-400 text-xs leading-relaxed font-medium">SNS, 메신저를 통한 지속적 괴롭힘 포함</p>
+                  <div className="pt-4 border-t border-white/5">
+                    <span className="text-indigo-300 font-bold block mb-1 text-sm uppercase tracking-widest">온라인 스토킹</span>
+                    <p className="text-slate-400 text-sm leading-relaxed font-medium">SNS, 메신저를 통한 지속적인 괴롭힘도 처벌 대상에 포함됩니다.</p>
                   </div>
                 </div>
               </div>
-            </div>
+            </AnimatedSection>
 
             {/* 도움 받을 수 있는 곳 */}
-            <div className="space-y-6 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+            <AnimatedSection className="space-y-6">
               <div className="flex items-center gap-3 text-emerald-400 font-black text-lg uppercase tracking-tighter">
                 <div className="p-2 bg-emerald-500/10 rounded-lg"><IconPhoneHelp /></div>
                 <span>긴급 도움 요청</span>
@@ -415,10 +451,10 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            </div>
+            </AnimatedSection>
 
             {/* Final Actions */}
-            <div className="flex flex-col gap-4 pt-8 animate-slide-up" style={{ animationDelay: '0.6s' }}>
+            <AnimatedSection className="flex flex-col gap-4 pt-8">
               <button
                 onClick={() => window.open("https://www.instagram.com/mju_humanrights?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==", "_blank")}
                 className="w-full py-5 rounded-3xl bg-gradient-to-br from-orange-500 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center gap-3 shadow-2xl shadow-pink-600/20 hover:scale-[1.02] active:scale-95 transition-all"
@@ -431,7 +467,7 @@ export default function App() {
               >
                 시작 화면으로 돌아가기
               </button>
-            </div>
+            </AnimatedSection>
           </div>
         </div>
       )}
