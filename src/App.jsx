@@ -198,12 +198,12 @@ export default function App() {
     useEffect(() => {
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
-            setIsVisible(true);
-            observer.unobserve(entry.target);
-          }
+          setIsVisible(entry.isIntersecting);
         },
-        { threshold: 0.1 }
+        { 
+          threshold: 0.15,
+          rootMargin: '-50px 0px -50px 0px' // Trigger slightly before it hits the edges
+        }
       );
 
       if (ref.current) observer.observe(ref.current);
@@ -215,8 +215,12 @@ export default function App() {
     return (
       <div
         ref={ref}
-        className={`${className} transition-all duration-700 ${isVisible ? 'animate-slide-up' : 'opacity-0 translate-y-10'}`}
-        style={{ animationDelay: delay }}
+        className={`${className} transition-all duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+          isVisible 
+            ? 'opacity-100 translate-y-0 scale-100 blur-0' 
+            : 'opacity-0 translate-y-24 scale-90 blur-sm'
+        }`}
+        style={{ transitionDelay: delay }}
       >
         {children}
       </div>
@@ -365,21 +369,23 @@ export default function App() {
       {screen === 'info' && (
         <div className="h-full overflow-y-auto bg-slate-950 scroll-smooth custom-scrollbar">
           {/* Hero Section */}
-          <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center animate-fade-in">
-            <div className="w-24 h-24 bg-indigo-500/10 rounded-[2rem] flex items-center justify-center mb-10 rotate-6 shadow-2xl border border-indigo-500/20">
-              <IconAlert />
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-black mb-8 leading-tight break-keep bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
-              이것은 실제 상황일 수 있습니다.
-            </h2>
-            <div className="bg-indigo-600/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl animate-slide-up">
-              <p className="text-xl sm:text-2xl font-bold mb-4 leading-tight">
-                <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
-              </p>
-              <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-                상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
-              </p>
-            </div>
+          <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center">
+            <AnimatedSection className="flex flex-col items-center">
+              <div className="w-24 h-24 bg-indigo-500/10 rounded-[2rem] flex items-center justify-center mb-10 rotate-6 shadow-2xl border border-indigo-500/20">
+                <IconAlert />
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black mb-8 leading-tight break-keep bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
+                이것은 실제 상황일 수 있습니다.
+              </h2>
+              <div className="bg-indigo-600/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl">
+                <p className="text-xl sm:text-2xl font-bold mb-4 leading-tight">
+                  <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
+                </p>
+                <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+                  상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
+                </p>
+              </div>
+            </AnimatedSection>
             
             {/* Scroll Indicator */}
             <div className="mt-16 animate-bounce opacity-50">
