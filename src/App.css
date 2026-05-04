@@ -1,9 +1,1 @@
-/* App.css is now handled via Tailwind CSS in App.jsx */
-@keyframes wave {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(2.5); }
-}
-
-.animate-wave {
-  animation: wave 1s infinite ease-in-out;
-}
+/* App.css는 index.css로 통합되었습니다. 이 파일은 더 이상 사용되지 않습니다. */
