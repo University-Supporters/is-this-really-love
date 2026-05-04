@@ -36,3 +36,43 @@ body {
 .animate-wave {
   animation: wave 1s infinite ease-in-out;
 }
+
+/* ── 글리치 & 엔딩 연출 애니메이션 ──────────────────────── */
+@keyframes pulse-red {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.4; }
+}
+
+@keyframes glitch {
+  0%   { transform: translate(0); }
+  20%  { transform: translate(-2px, 2px); }
+  40%  { transform: translate(-2px, -2px); }
+  60%  { transform: translate(2px, 2px); }
+  80%  { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-5px); }
+  75%      { transform: translateX(5px); }
+}
+
+.animate-pulse-red { animation: pulse-red 2s infinite ease-in-out; }
+.animate-glitch    { animation: glitch 0.3s infinite linear; }
+.animate-shake     { animation: shake 0.1s infinite linear; }
+
+/* ── 커스텀 스크롤바 ─────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
