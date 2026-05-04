@@ -23,8 +23,8 @@ export default function EndingScreen() {
       <div className="absolute inset-0 bg-red-950/10 animate-pulse-red" />
       
       {/* 메인 텍스트 영역: 크기를 고정하고 퇴장 효과만 적용 */}
-      <div className={`relative z-10 ${isOutGlitching ? 'animate-glitch-out' : 'animate-jitter'}`}>
-        <div className="text-white font-mono text-2xl font-black tracking-[0.3em] uppercase select-none">
+      <div className={`relative z-10 text-center px-4 ${isOutGlitching ? 'animate-glitch-out' : 'animate-jitter'}`}>
+        <div className="text-white font-mono text-2xl font-black tracking-[0.3em] uppercase select-none break-words">
           Connection Terminated
         </div>
         
