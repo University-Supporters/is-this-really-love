@@ -62,7 +62,7 @@ export default function InfoScreen({ onRestart }) {
           <h2 className="text-3xl sm:text-4xl font-black mb-8 leading-tight break-keep bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
             이것은 실제 상황일 수 있습니다.
           </h2>
-          <div className="bg-slate-900/80 p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl">
+          <div className="bg-slate-900/80 p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl break-keep">
             <p className="text-xl sm:text-2xl font-bold mb-4 leading-tight">
               <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
             </p>
@@ -90,16 +90,16 @@ export default function InfoScreen({ onRestart }) {
             <span>처벌 규정</span>
           </div>
           <div className="grid gap-3">
-            <div className="bg-slate-900/80 p-5 rounded-3xl border border-white/5 hover:border-indigo-500/30 transition-colors">
+            <div className="bg-slate-900/80 p-5 rounded-3xl border border-white/5 hover:border-indigo-500/30 transition-colors break-keep">
               <span className="text-indigo-300 font-bold block mb-2 text-sm uppercase tracking-widest">일반 스토킹</span>
               <p className="text-lg font-medium text-slate-200 leading-snug">3년 이하의 징역 또는<br/>3,000만 원 이하의 벌금</p>
             </div>
-            <div className="bg-red-500/10 p-5 rounded-3xl border border-red-500/10 hover:border-red-500/30 transition-colors">
+            <div className="bg-red-500/10 p-5 rounded-3xl border border-red-500/10 hover:border-red-500/30 transition-colors break-keep">
               <span className="text-red-400 font-bold block mb-2 text-sm uppercase tracking-widest">흉기 등 위험한 물건 소지</span>
               <p className="text-lg font-medium text-slate-200 leading-snug">5년 이하의 징역 또는<br/>5,000만 원 이하의 벌금</p>
             </div>
             
-            <div className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 space-y-4">
+            <div className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 space-y-4 break-keep">
               <div>
                 <span className="text-indigo-300 font-bold block mb-1 text-sm uppercase tracking-widest">반의사불벌죄 폐지</span>
                 <p className="text-slate-400 text-sm leading-relaxed font-medium">피해자의 의사와 상관없이 형사 처벌이 진행됩니다.</p>
