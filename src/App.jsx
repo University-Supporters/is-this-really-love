@@ -252,8 +252,8 @@ export default function App() {
 
       {/* --- 4. Info Screen --- */}
       {screen === 'info' && (
-        <div className="flex flex-col items-center justify-center h-full px-8 animate-slide-up">
-          <div className="bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 w-full max-w-lg shadow-2xl">
+        <div className="flex flex-col items-center justify-start sm:justify-center h-full overflow-y-auto px-8 py-12 bg-[#0f172a]">
+          <div className="bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 w-full max-w-lg shadow-2xl animate-slide-up will-change-transform">
             <div className="flex flex-col items-center text-center mb-8">
               <div className="w-20 h-20 bg-indigo-500/20 rounded-full flex items-center justify-center mb-6">
                 <IconAlert />
