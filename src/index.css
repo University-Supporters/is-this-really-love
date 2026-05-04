@@ -107,6 +107,8 @@ body {
 .info-card-animate {
   will-change: transform, opacity;
   backface-visibility: hidden;
+  contain: content;
+  transform: translateZ(0); /* GPU 가속 강제 */
 }
 
 /* ── 커스텀 스크롤바 ─────────────────────────────────── */

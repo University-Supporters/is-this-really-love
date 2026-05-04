@@ -29,10 +29,10 @@ const AnimatedSection = ({ children, className = "", delay = "0s" }) => {
   return (
     <div
       ref={ref}
-      className={`${className} transition-all duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)] info-card-animate ${
+      className={`${className} transition-all duration-700 ease-out info-card-animate ${
         isVisible 
           ? 'opacity-100 translate-y-0 scale-100 blur-0' 
-          : 'opacity-0 translate-y-12 scale-95 blur-sm'
+          : 'opacity-0 translate-y-8 scale-95 blur-sm'
       }`}
       style={{ transitionDelay: delay }}
     >
@@ -62,7 +62,7 @@ export default function InfoScreen({ onRestart }) {
           <h2 className="text-3xl sm:text-4xl font-black mb-8 leading-tight break-keep bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
             이것은 실제 상황일 수 있습니다.
           </h2>
-          <div className="bg-indigo-600/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl">
+          <div className="bg-slate-900/80 p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl">
             <p className="text-xl sm:text-2xl font-bold mb-4 leading-tight">
               <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
             </p>
@@ -90,11 +90,11 @@ export default function InfoScreen({ onRestart }) {
             <span>처벌 규정</span>
           </div>
           <div className="grid gap-3">
-            <div className="bg-slate-900/50 backdrop-blur-md p-5 rounded-3xl border border-white/5 hover:border-indigo-500/30 transition-colors">
+            <div className="bg-slate-900/80 p-5 rounded-3xl border border-white/5 hover:border-indigo-500/30 transition-colors">
               <span className="text-indigo-300 font-bold block mb-2 text-sm uppercase tracking-widest">일반 스토킹</span>
               <p className="text-lg font-medium text-slate-200 leading-snug">3년 이하의 징역 또는<br/>3,000만 원 이하의 벌금</p>
             </div>
-            <div className="bg-red-500/5 backdrop-blur-md p-5 rounded-3xl border border-red-500/10 hover:border-red-500/30 transition-colors">
+            <div className="bg-red-500/10 p-5 rounded-3xl border border-red-500/10 hover:border-red-500/30 transition-colors">
               <span className="text-red-400 font-bold block mb-2 text-sm uppercase tracking-widest">흉기 등 위험한 물건 소지</span>
               <p className="text-lg font-medium text-slate-200 leading-snug">5년 이하의 징역 또는<br/>5,000만 원 이하의 벌금</p>
             </div>
@@ -127,7 +127,7 @@ export default function InfoScreen({ onRestart }) {
               <p className="text-slate-500 text-xs font-bold mb-2 uppercase tracking-widest">여성긴급전화</p>
               <p className="font-black text-3xl text-white">1366</p>
             </div>
-            <div className="bg-emerald-500/5 backdrop-blur-md p-6 rounded-[2.5rem] border border-emerald-500/10 col-span-2 relative overflow-hidden group">
+            <div className="bg-emerald-500/10 p-6 rounded-[2.5rem] border border-emerald-500/10 col-span-2 relative overflow-hidden group">
               <div className="relative z-10">
                 <p className="text-emerald-400 font-black text-sm mb-3 uppercase tracking-widest">경기도젠더폭력통합대응단</p>
                 <div className="flex justify-between items-end">
