@@ -121,7 +121,13 @@ export function useCallSession() {
 
   const handleHangUp = () => {
     stopAudio();
-    setScreen('info');
+    playStaticNoise();
+    setScreen('ending');
+    
+    // 1.2초 후 정보 화면으로 자동 전환
+    setTimeout(() => {
+      setScreen('info');
+    }, 1200);
   };
 
   const handleRestart = () => {

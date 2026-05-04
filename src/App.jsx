@@ -3,6 +3,7 @@ import { useCallSession }    from './hooks/useCallSession';
 import SelectionScreen       from './components/screens/SelectionScreen';
 import IncomingScreen        from './components/screens/IncomingScreen';
 import InCallScreen          from './components/screens/InCallScreen';
+import EndingScreen          from './components/screens/EndingScreen';
 import InfoScreen            from './components/screens/InfoScreen';
 
 /** 화면 라우터 맵 */
@@ -27,6 +28,9 @@ const SCREENS = {
       formattedTime={session.formatTime(session.seconds)}
       onHangUp={session.handleHangUp}
     />
+  ),
+  ending: () => (
+    <EndingScreen />
   ),
   info: ({ session }) => (
     <InfoScreen onRestart={session.handleRestart} />

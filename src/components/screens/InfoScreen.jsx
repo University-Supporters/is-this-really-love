@@ -29,10 +29,10 @@ const AnimatedSection = ({ children, className = "", delay = "0s" }) => {
   return (
     <div
       ref={ref}
-      className={`${className} transition-all duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+      className={`${className} transition-all duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)] info-card-animate ${
         isVisible 
           ? 'opacity-100 translate-y-0 scale-100 blur-0' 
-          : 'opacity-0 translate-y-24 scale-90 blur-sm'
+          : 'opacity-0 translate-y-12 scale-95 blur-sm'
       }`}
       style={{ transitionDelay: delay }}
     >
