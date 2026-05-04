@@ -43,16 +43,30 @@
 
 ## 🏗 아키텍처 및 폴더 구조 (Architecture)
 
+v3.0 리팩토링을 통해 단일 파일(App.jsx) 중심의 구조에서 **기능별 모듈 분리** 구조로 전환되었습니다.
+
 ```text
 is-this-really-love/
-├── public/                 # 📁 정적 자산 관리
-│   ├── audio/              # 🔊 시나리오별 실제 음성 녹음 파일
-│   └── images/             # 📸 발신자 프로필 및 배경 이미지
-├── src/                    # 🌐 소스 코드
-│   ├── App.jsx             # 메인 비즈니스 로직 및 상태 관리
-│   ├── index.css           # 글로벌 스타일 및 Tailwind 설정
-│   └── main.jsx            # 어플리케이션 진입점
-└── tailwind.config.js      # 디자인 시스템 및 애니메이션 설정
+├── public/                         # 📁 정적 자산 관리
+│   ├── audio/                      # 🔊 시나리오별 실제 음성 녹음 파일
+│   └── images/                     # 📸 발신자 프로필 및 배경 이미지
+├── src/                            # 🌐 소스 코드
+│   ├── constants/
+│   │   └── callers.js              # 발신자 데이터 및 외부 링크 상수
+│   ├── hooks/
+│   │   └── useCallSession.js       # 통화 상태·오디오·진동·타이머 커스텀 훅
+│   ├── components/
+│   │   ├── icons/
+│   │   │   └── index.jsx           # SVG 아이콘 통합 모듈
+│   │   └── screens/
+│   │       ├── SelectionScreen.jsx # 성별 선택 화면
+│   │       ├── IncomingScreen.jsx  # 수신 전화 화면
+│   │       ├── InCallScreen.jsx    # 통화 중 화면
+│   │       └── InfoScreen.jsx      # 안내 정보 화면
+│   ├── App.jsx                     # 화면 라우터 (35줄)
+│   ├── index.css                   # 전역 스타일 및 Tailwind 설정
+│   └── main.jsx                    # 애플리케이션 진입점
+└── tailwind.config.js              # 디자인 시스템 및 애니메이션 설정
 ```
 
 ---
@@ -84,6 +98,16 @@ is-this-really-love/
 ---
 
 ## 🔧 최근 업데이트 이력 (Recent Updates)
+
+### v3.0 (2026.05.04)
+- **전체 코드 모듈화(리팩토링)**: 단일 `App.jsx`(294줄)를 기능별로 완전 분리하였습니다.
+  - `constants/callers.js`: 발신자 데이터 및 외부 링크 상수 분리
+  - `hooks/useCallSession.js`: 통화 상태·오디오·진동·타이머 로직을 커스텀 훅으로 캡슐화
+  - `components/icons/index.jsx`: 모든 SVG 아이콘 통합 모듈화
+  - `components/screens/`: 4개 화면을 각각 독립 컴포넌트로 분리
+  - `App.jsx`: 화면 라우터 역할만 담당하는 35줄의 경량 진입점으로 재구성
+- **CSS 정리**: `App.css`·`index.css` 간 `wave` 애니메이션 중복 정의를 `index.css`로 통합
+- **애니메이션 안정화**: 안내문구 화면의 `animate-slide-up` 적용 위치를 조정하고, `will-change-transform` 및 `overflow-y-auto`를 추가하여 레이아웃 상단 걸침 현상 해결
 
 ### v2.1 (2026.04.29)
 - **성능 최적화**: 이미지 자산을 `.png`에서 `.jpg`로 변경하여 전체 용량을 **90% 이상 절감**하고 로딩 속도를 획기적으로 개선하였습니다.
