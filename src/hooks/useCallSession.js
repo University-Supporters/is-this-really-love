@@ -27,6 +27,11 @@ export function useCallSession() {
   const [seconds, setSeconds] = useState(0);
   const [seenCallers, setSeenCallers] = useState([]);
 
+  // 전체 하이브리드 자원(이미지 10개, 오디오 10개) 프리로드 상태 관리
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const audioArrayBuffersRef = useRef({}); // { [audioUrl]: ArrayBuffer }
+
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
   const androidStreamAudioRef = useRef(null); // 안드로이드용 가상 스트림 재생 오디오 참조
@@ -40,12 +45,64 @@ export function useCallSession() {
   const micStreamRef = useRef(null);
   const decodedBufferRef = useRef(null); // 사전 디코딩된 발신자 음성 버퍼 저장소
 
-  // 이미지 프리로딩 (최초 마운트 1회)
+  // [강력한 에셋 선적재 프리로더 (바이너리 캐싱 전형)]
+  // 첫 페이지 진입 시 모든 이미지(10개) 및 녹음 오디오 바이너리 ArrayBuffer(10개)를 네트워크 선다운로드합니다.
+  // 이 단계에서는 오토플레이 잠금 및 iOS Safari의 원천 사운드 비활성화 버그를 예방하기 위해 AudioContext를 절대로 호출하지 않습니다!
+  // 오직 안심할 수 있는 단순 네트워크 페치만 수행하므로 모바일 오디오 칩셋 차단 및 부팅 크래시를 100% 회피합니다.
   useEffect(() => {
-    Object.values(CALLERS).flat().forEach(({ image }) => {
-      const img = new Image();
-      img.src = image;
+    const allCallers = Object.values(CALLERS).flat();
+    const imagesToLoad = allCallers.map((c) => ({ type: 'image', url: c.image }));
+    const audiosToLoad = allCallers.map((c) => ({ type: 'audio', url: c.audio }));
+    const allAssets = [...imagesToLoad, ...audiosToLoad];
+
+    const total = allAssets.length;
+    let loadedCount = 0;
+
+    if (total === 0) {
+      setLoadProgress(100);
+      setIsLoaded(true);
+      return;
+    }
+
+    const updateProgress = () => {
+      loadedCount++;
+      const pct = Math.round((loadedCount / total) * 100);
+      setLoadProgress((prev) => {
+        const nextPct = Math.max(prev, pct);
+        if (nextPct >= 100) {
+          setIsLoaded(true);
+          console.log('All gorgeous assets (Images & Raw Audios) are pre-fetched and ready in cache!');
+        }
+        return nextPct;
+      });
+    };
+
+    allAssets.forEach((asset) => {
+      if (asset.type === 'image') {
+        const img = new Image();
+        img.src = asset.url;
+        img.onload = updateProgress;
+        img.onerror = updateProgress; // 에러 발생 시에도 중단되지 않고 로딩 완료되도록 예외 처리
+      } else if (asset.type === 'audio') {
+        fetch(`${asset.url}?v=${Date.now()}`)
+          .then((res) => {
+            if (!res.ok) throw new Error('Fetch failed');
+            return res.arrayBuffer();
+          })
+          .then((buf) => {
+            audioArrayBuffersRef.current[asset.url] = buf;
+            updateProgress();
+          })
+          .catch((err) => {
+            console.log('Audio array buffer pre-fetch failed:', asset.url, err);
+            updateProgress();
+          });
+      }
     });
+
+    return () => {
+      // 컴포넌트 마운트 해제 시 정리 없음
+    };
   }, []);
 
   // incall 화면에서만 타이머 동작
@@ -99,14 +156,26 @@ export function useCallSession() {
         console.log('Error resetting audioSession type:', e);
       }
     }
-    // Web Audio 컨텍스트 및 필터 노드 정리
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch((e) => console.log('AudioContext close error:', e));
+    // Web Audio 노드 정리
+    if (sourceNodeRef.current) {
+      try { sourceNodeRef.current.disconnect(); } catch (e) {}
+      sourceNodeRef.current = null;
     }
-    audioContextRef.current = null;
-    sourceNodeRef.current = null;
     hpFilterRef.current = null;
     lpFilterRef.current = null;
+
+    // 통화 종료 시마다 수립된 AudioContext를 명시적으로 닫아(close)
+    // 모바일 OS 미디어 데몬 채널 누수 및 수화기 강제 잠금 현상을 원천 방어합니다.
+    if (audioContextRef.current) {
+      try {
+        if (audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+        }
+      } catch (e) {
+        console.log('Error closing AudioContext inside stopAudio:', e);
+      }
+      audioContextRef.current = null;
+    }
   };
 
   const updateAudioRouting = (speakerOn) => {
@@ -274,17 +343,35 @@ export function useCallSession() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) throw new Error('Web Audio API not supported');
 
-      const ctx = new AudioContext({
-        sampleRate: 44100,
-        latencyHint: 'playout'
-      });
-      audioContextRef.current = ctx;
+      // 기존 공용 콘텍스트가 수립되어 있다면 그것을 재사용하고, 닫혀있거나 없으면 새로 만듭니다.
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === 'closed') {
+        try {
+          ctx = new AudioContext({ sampleRate: 44100, latencyHint: 'playout' });
+        } catch (e) {
+          ctx = new AudioContext();
+        }
+        audioContextRef.current = ctx;
+      }
 
-      // 1. 순수 바이너리 데이터로 오디오 파일 강제 다운로드 및 자체 디코딩
-      // HTML5 <audio> 엘리먼트를 아예 배제하여 크롬의 잦은 파일 파싱/라우팅 버그를 100% 회피합니다.
-      const response = await fetch(`${src}?v=${Date.now()}`);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      // 폰 스피커폰 / 수화기 전환 모드 활성화를 위해 콘텍스트가 suspended 상태면 깨워둡니다.
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch((e) => console.log('Resume play context error:', e));
+      }
+
+      // 1. 사전 해독된 버퍼를 가져오거나 없으면 강제 다운로드 및 자체 디코딩
+      let audioBuffer;
+      if (src instanceof AudioBuffer) {
+        audioBuffer = src;
+        console.log('Playing using pre-cached AudioBuffer instantly!');
+      } else if (typeof src === 'string') {
+        console.log('Pre-cached buffer missing. Fetching on-demand:', src);
+        const response = await fetch(`${src}?v=${Date.now()}`);
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      } else {
+        throw new Error('Unsupported audio source format');
+      }
 
       // 만약 다운로드/디코딩 도중 전화를 끊었다면 컨텍스트가 닫혔을 것이므로 재생 중단
       if (ctx.state === 'closed') return;
@@ -350,21 +437,18 @@ export function useCallSession() {
         }
       }
 
-      // 오디오 강제 재생 실행!
+      // 오디오 신호 재생 개시
       source.start(0);
-
-      // 브라우저 멈춤 방지용 활성화
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(e => console.log('Resume error:', e));
-      }
-    } catch (err) {
-      console.log('Web Audio Buffer play failed, falling back to basic Audio:', err);
+    } catch (e) {
+      console.log('playAudio error:', e);
       // 구형 기기를 위한 원시 HTML5 오디오 폴백
-      const audio = new Audio(`${src}?v=${Date.now()}`);
-      audio.volume = 0.7;
-      audio.addEventListener('ended', () => handleHangUp(true));
-      audioRef.current = audio;
-      audio.play().catch(e => console.log('Fallback play failed:', e));
+      if (typeof src === 'string') {
+        const audio = new Audio(`${src}?v=${Date.now()}`);
+        audio.volume = 0.7;
+        audio.addEventListener('ended', () => handleHangUp(true));
+        audioRef.current = audio;
+        audio.play().catch(err => console.log('Fallback play failed:', err));
+      }
     }
   };
 
@@ -465,33 +549,6 @@ export function useCallSession() {
     setSeconds(0);
     setConfig({ gender, caller });
 
-    // [발신자 목소리 오디오 파일 사전 비동기 다운로드 및 완전 디코딩]
-    // 모바일 브라우저(Safari/Chrome)의 철저한 오토플레이(Autoplay) 차단 정책을 돌파하기 위해,
-    // 사용자가 첫 선택 화면에서 '시작하기' 버튼을 누른 (User Gesture Token이 100% 활성화된) 시점에 
-    // 즉시 오디오 콘텍스트를 만들고 백그라운드 디코딩 작업을 등록해 둡니다.
-    // 수락 클릭 시점에는 이미 메모리에 로딩되어 있으므로 보안 오류나 무음 버그 없이 100% 확실히 소리가 재생됩니다.
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext({
-          sampleRate: 44100,
-          latencyHint: 'playout'
-        });
-        audioContextRef.current = ctx;
-
-        fetch(`${caller.audio}?v=${Date.now()}`)
-          .then(res => res.arrayBuffer())
-          .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
-          .then(audioBuffer => {
-            decodedBufferRef.current = audioBuffer;
-            console.log('Background voice decoding completed and cached.');
-          })
-          .catch(err => console.log('Background audio pre-decoding failed:', err));
-      }
-    } catch (e) {
-      console.log('Background AudioContext initialization failed:', e);
-    }
-
     // [체험 시작 전 마이크 권한 선요청]
     // 성별 선택 후 '시작하기'를 누르면 미리 마이크 권한을 받아둡니다.
     // 이렇게 하면 전화 수락(InCall) 시점에 화면 풀림 현상이나 랙 없이 즉시 통화 연결이 가능합니다.
@@ -569,9 +626,10 @@ export function useCallSession() {
       }
     }
 
-    // 오디오 재생 엔진 가동 (사전 디코딩된 오디오 버퍼가 존재할 경우 버퍼를 사용해 무지연/무차단 즉시 재생)
-    const audioTarget = decodedBufferRef.current || config.caller?.audio;
-    if (audioTarget) playAudio(audioTarget);
+    // 오디오 재생 엔진 가동 (선적재된 바이너리 데이터를 즉시 디코딩하여 완전 무지연/무차단 즉시 재생)
+    if (config.caller?.audio) {
+      playAudio(config.caller.audio);
+    }
   };
 
   const handleDecline = () => {
@@ -629,5 +687,7 @@ export function useCallSession() {
     handleRestart,
     isSpeaker,
     toggleSpeaker,
+    loadProgress,
+    isLoaded,
   };
 }

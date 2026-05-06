@@ -13,6 +13,8 @@ const SCREENS = {
       config={session.config}
       setConfig={session.setConfig}
       onStart={session.handleStart}
+      loadProgress={session.loadProgress}
+      isLoaded={session.isLoaded}
     />
   ),
   incoming: ({ session }) => (
