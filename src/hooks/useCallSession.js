@@ -359,11 +359,14 @@ export function useCallSession() {
         await ctx.resume().catch((e) => console.log('Resume play context error:', e));
       }
 
-      // 1. 사전 해독된 버퍼를 가져오거나 없으면 강제 다운로드 및 자체 디코딩
+      // 1. 사전 다운로드된 ArrayBuffer가 있는지 확인하여 가져옵니다.
       let audioBuffer;
-      if (src instanceof AudioBuffer) {
-        audioBuffer = src;
-        console.log('Playing using pre-cached AudioBuffer instantly!');
+      const cachedArrayBuffer = audioArrayBuffersRef.current[src];
+
+      if (cachedArrayBuffer) {
+        console.log('Found pre-fetched raw ArrayBuffer in cache! Decoding instantly...');
+        // decodeAudioData는 버퍼를 소모하므로 slice로 복제하여 해독합니다.
+        audioBuffer = await ctx.decodeAudioData(cachedArrayBuffer.slice(0));
       } else if (typeof src === 'string') {
         console.log('Pre-cached buffer missing. Fetching on-demand:', src);
         const response = await fetch(`${src}?v=${Date.now()}`);
@@ -591,6 +594,13 @@ export function useCallSession() {
     stopVibration();
     setScreen('incall');
 
+    // [최고 중요] 오디오 재생 엔진 가동을 최우선으로 배치!
+    // 비동기 getUserMedia 나 오디오 세션 셋팅 등의 네트워크/권한 팝업 마이크로태스크 대기 시간으로 인해 
+    // 브라우저의 'User Gesture Token'(사용자 클릭 권한)이 소멸(Expiry)되는 사파리 특이 현상을 원천 차단하기 위함입니다.
+    if (config.caller?.audio) {
+      playAudio(config.caller.audio);
+    }
+
     const isMobile = isMobileDevice();
     if (isMobile && !isSpeaker) {
       // 선허용된 마이크 스트림이 없다면 여기서 다시 획득을 시도합니다.
@@ -624,11 +634,6 @@ export function useCallSession() {
           }
         }
       }
-    }
-
-    // 오디오 재생 엔진 가동 (선적재된 바이너리 데이터를 즉시 디코딩하여 완전 무지연/무차단 즉시 재생)
-    if (config.caller?.audio) {
-      playAudio(config.caller.audio);
     }
   };
 
