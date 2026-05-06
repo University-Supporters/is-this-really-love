@@ -12,6 +12,7 @@ export function useCallSession() {
   const [screen, setScreen] = useState('selection');
   const [config, setConfig] = useState({ gender: null, caller: null });
   const [seconds, setSeconds] = useState(0);
+  const [seenCallers, setSeenCallers] = useState([]);
 
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
@@ -97,8 +98,30 @@ export function useCallSession() {
 
   // ── 화면 전환 핸들러 ─────────────────────────────────
   const handleStart = (gender) => {
-    const pool   = CALLERS[gender];
-    const caller = pool[Math.floor(Math.random() * pool.length)];
+    let pool;
+    if (gender === 'all') {
+      pool = [...CALLERS.female, ...CALLERS.male];
+    } else {
+      pool = CALLERS[gender];
+    }
+
+    // 이미 마주한 발신자를 배제한 목록 생성
+    let candidates = pool.filter((c) => !seenCallers.includes(c.name));
+
+    // 모든 발신자를 최소 1회 마주했거나 후보군이 비어있다면 풀 복원
+    if (candidates.length === 0) {
+      candidates = pool;
+    }
+
+    const caller = candidates[Math.floor(Math.random() * candidates.length)];
+
+    // 비복원 랜덤 리스트 소진 시점 체크 및 히스토리 업데이트
+    const isExhausted = pool.filter((c) => !seenCallers.includes(c.name)).length <= 1;
+    if (isExhausted) {
+      setSeenCallers([caller.name]);
+    } else {
+      setSeenCallers((prev) => [...prev, caller.name]);
+    }
 
     setSeconds(0);
     setConfig({ gender, caller });
@@ -132,6 +155,7 @@ export function useCallSession() {
 
   const handleRestart = () => {
     setConfig({ gender: null, caller: null });
+    setSeenCallers([]);
     setScreen('selection');
   };
 
