@@ -29,22 +29,29 @@ export default function IncomingScreen({ caller, onAccept, onDecline }) {
       </div>
 
       {/* 수락 / 거절 버튼 */}
-      <div className="relative z-10 flex gap-16 mb-10">
-        <button
-          onClick={onDecline}
-          className="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-lg hover:scale-110 active:scale-90 transition-transform"
-          aria-label="거절"
-        >
-          <IconPhone rotate={135} />
-        </button>
+      <div className="relative z-10 flex flex-col items-center gap-10 mb-6">
+        <div className="flex gap-16">
+          <button
+            onClick={onDecline}
+            className="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-lg hover:scale-110 active:scale-90 transition-transform"
+            aria-label="거절"
+          >
+            <IconPhone rotate={135} />
+          </button>
 
-        <button
-          onClick={onAccept}
-          className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-lg animate-bounce hover:scale-110 active:scale-90 transition-transform shadow-green-500/50"
-          aria-label="수락"
-        >
-          <IconPhone />
-        </button>
+          <button
+            onClick={onAccept}
+            className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-lg animate-bounce hover:scale-110 active:scale-90 transition-transform shadow-green-500/50"
+            aria-label="수락"
+          >
+            <IconPhone />
+          </button>
+        </div>
+        
+        {/* 안내 문구 */}
+        <p className="text-[10px] text-white/30 text-center max-w-[280px] leading-normal font-light tracking-tight px-4">
+          ※ 실제 기기 수화기(전화 볼륨) 채널 전환을 재현하기 위해 수락 시 권한 요청이 발생할 수 있습니다. 음성은 수집되거나 기록되지 않습니다.
+        </p>
       </div>
     </div>
   );
