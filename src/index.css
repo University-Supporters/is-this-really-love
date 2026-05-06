@@ -118,3 +118,31 @@ body {
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.4); }
+
+/* ── 스마트폰 화면 전체 비주얼 진동 애니메이션 (특히 iOS 진동 보완) ── */
+@keyframes shake-vibrate {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-1px, -1px) rotate(-0.5deg); }
+  20% { transform: translate(1px, 1px) rotate(0.5deg); }
+  30% { transform: translate(-1.5px, 0.5px) rotate(-1deg); }
+  40% { transform: translate(1.5px, -0.5px) rotate(1deg); }
+  50% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  60% { transform: translate(1px, -1px) rotate(0.5deg); }
+  70% { transform: translate(-0.5px, -0.5px) rotate(-0.2deg); }
+  80% { transform: translate(0.5px, 0.5px) rotate(0.2deg); }
+  90% { transform: translate(-1px, 0.5px) rotate(-0.5deg); }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 0.35; transform: scale(1.08); }
+  50% { opacity: 0.5; transform: scale(1.13); }
+}
+
+.animate-vibrate {
+  animation: shake-vibrate 0.15s infinite linear;
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 3s infinite ease-in-out;
+}
+
