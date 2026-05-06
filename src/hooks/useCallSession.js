@@ -23,6 +23,7 @@ export function useCallSession() {
   const sourceNodeRef = useRef(null);
   const hpFilterRef = useRef(null);
   const lpFilterRef = useRef(null);
+  const micStreamRef = useRef(null);
 
   // 이미지 프리로딩 (최초 마운트 1회)
   useEffect(() => {
@@ -48,6 +49,15 @@ export function useCallSession() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
+    }
+    // 마이크 스트림을 해제하여 디바이스 마이크 점유 표시등을 끄고 미디어 볼륨 채널로 완벽 환원
+    if (micStreamRef.current) {
+      try {
+        micStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        console.log('Error stopping mic tracks:', e);
+      }
+      micStreamRef.current = null;
     }
     // Web Audio 컨텍스트 및 필터 노드 정리
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -221,6 +231,20 @@ export function useCallSession() {
   const handleAccept = () => {
     stopVibration();
     setScreen('incall');
+
+    // 모바일 OS(갤럭시/아이폰)가 브라우저 미디어 볼륨 대신 '통화 볼륨' 채널로 하드웨어 소리 설정을 전환하도록 강제하기 위해
+    // 마이크 스트림(Communication Audio Category)을 일시적으로 수락/요청합니다.
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          micStreamRef.current = stream;
+          console.log('Call audio channel switched to hardware communication volume.');
+        })
+        .catch((err) => {
+          console.log('Microphone access for communication volume channel was declined or not supported:', err);
+        });
+    }
+
     if (config.caller?.audio) playAudio(config.caller.audio);
   };
 
