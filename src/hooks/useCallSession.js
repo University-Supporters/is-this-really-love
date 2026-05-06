@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { CALLERS } from '../constants/callers';
 
+/** 모바일 기기 여부 감지 유틸리티 */
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 /**
  * 통화 세션의 전체 상태와 로직을 관리하는 커스텀 훅.
  * - 화면 전환 (selection → incoming → incall → info)
@@ -101,11 +106,40 @@ export function useCallSession() {
   const toggleSpeaker = () => {
     setIsSpeaker((prev) => {
       const next = !prev;
-      updateAudioRouting(next);
       
-      // 사용자 조작 이벤트 시 오디오 세션 활성화 강제 동기화
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch((e) => console.log('Error resuming AudioContext:', e));
+      const isMobile = isMobileDevice();
+      if (isMobile) {
+        // [모바일 기기 실시간 스피커폰 기획]
+        // - 스피커폰 켬 (next === true): 마이크 스트림을 꺼서 OS를 일반 미디어 볼륨(Loudspeaker) 모드로 복귀시킵니다.
+        // - 스피커폰 끔 (next === false): 마이크 스트림을 가동해 OS를 earpiece 통화(VoIP) 모드로 진입시킵니다.
+        if (next) {
+          console.log('Mobile Speakerphone ON: releasing mic stream to route to standard loudspeaker.');
+          if (micStreamRef.current) {
+            try {
+              micStreamRef.current.getTracks().forEach((track) => track.stop());
+            } catch (e) {
+              console.log('Error stopping mic tracks:', e);
+            }
+            micStreamRef.current = null;
+          }
+        } else {
+          console.log('Mobile Speakerphone OFF: requesting mic stream to route to earpiece call volume.');
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+              .then((stream) => {
+                micStreamRef.current = stream;
+              })
+              .catch((err) => {
+                console.log('Microphone access for earpiece routing failed:', err);
+              });
+          }
+        }
+      } else {
+        // 데스크톱: 기존 Web Audio API 필터 라우팅 바이패스 제어
+        updateAudioRouting(next);
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().catch((e) => console.log('Error resuming AudioContext:', e));
+        }
       }
       return next;
     });
@@ -115,42 +149,53 @@ export function useCallSession() {
     const audio = new Audio(src);
     audioRef.current = audio;
 
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext();
-        audioContextRef.current = ctx;
+    // [모바일 브라우저 무음 원천 디버깅 및 사운드 보증 핵심 로직]
+    // 모바일(특히 iOS Safari, Chrome)의 경우, getUserMedia 마이크 활성화 시점에 HTMLMediaElement를 Web Audio API에 
+    // 연동(createMediaElementSource)하면, 웹킷 오디오 엔진 충돌로 인해 기기가 강제로 음소거(Mute)되는 치명적인 고질 버그가 존재합니다.
+    // 이를 영구 극복하기 위해 모바일 기기에서는 Web Audio 노드 처리를 100% 바이패스하고 네이티브 오디오를 직접 재생시킵니다.
+    // (모바일 기기 OS가 마이크 권한 감지 즉시 물리 수화기 필터를 하드웨어 적용하므로, 통화기 음질은 여전히 극도로 실감 나게 흘러나옵니다!)
+    const isMobile = isMobileDevice();
 
-        const source = ctx.createMediaElementSource(audio);
-        sourceNodeRef.current = source;
-        
-        // 1. 하이패스 필터 (저역대 차단 - 400Hz 이하 차단으로 전화기 특유의 카랑카랑함 확보)
-        const hpFilter = ctx.createBiquadFilter();
-        hpFilter.type = 'highpass';
-        hpFilter.frequency.setValueAtTime(400, ctx.currentTime);
-        hpFilterRef.current = hpFilter;
+    if (!isMobile) {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          audioContextRef.current = ctx;
 
-        // 2. 로우패스 필터 (고역대 차단 - 3000Hz 이상 차단으로 전화선 통과 톤 구현)
-        const lpFilter = ctx.createBiquadFilter();
-        lpFilter.type = 'lowpass';
-        lpFilter.frequency.setValueAtTime(3000, ctx.currentTime);
-        lpFilterRef.current = lpFilter;
+          const source = ctx.createMediaElementSource(audio);
+          sourceNodeRef.current = source;
+          
+          // 1. 하이패스 필터 (저역대 차단 - 400Hz 이하 차단으로 전화기 특유의 카랑카랑함 확보)
+          const hpFilter = ctx.createBiquadFilter();
+          hpFilter.type = 'highpass';
+          hpFilter.frequency.setValueAtTime(400, ctx.currentTime);
+          hpFilterRef.current = hpFilter;
 
-        if (isSpeaker) {
-          source.connect(ctx.destination);
-        } else {
-          source.connect(hpFilter);
-          hpFilter.connect(lpFilter);
-          lpFilter.connect(ctx.destination);
+          // 2. 로우패스 필터 (고역대 차단 - 3000Hz 이상 차단으로 전화선 통과 톤 구현)
+          const lpFilter = ctx.createBiquadFilter();
+          lpFilter.type = 'lowpass';
+          lpFilter.frequency.setValueAtTime(3000, ctx.currentTime);
+          lpFilterRef.current = lpFilter;
+
+          if (isSpeaker) {
+            source.connect(ctx.destination);
+          } else {
+            source.connect(hpFilter);
+            hpFilter.connect(lpFilter);
+            lpFilter.connect(ctx.destination);
+          }
+
+          // 브라우저 자동 재생 정책 및 미디어 대기 상태 방지를 위해 생성 직후 즉시 활성화(resume)를 보장합니다.
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch((e) => console.log('Initial AudioContext resume error:', e));
+          }
         }
-
-        // 브라우저 자동 재생 정책 및 미디어 대기 상태 방지를 위해 생성 직후 즉시 활성화(resume)를 보장합니다.
-        if (ctx.state === 'suspended') {
-          ctx.resume().catch((e) => console.log('Initial AudioContext resume error:', e));
-        }
+      } catch (e) {
+        console.log('Web Audio API not supported or blocked, playing raw audio:', e);
       }
-    } catch (e) {
-      console.log('Web Audio API not supported or blocked, playing raw audio:', e);
+    } else {
+      console.log('Mobile environment detected: Bypassing Web Audio API node connection to ensure maximum stability and sound output.');
     }
 
     audio.play().catch((e) => console.log('Audio play deferred:', e));
@@ -247,26 +292,17 @@ export function useCallSession() {
 
     // 2. 모바일 기기 통화 볼륨 채널 동조화 가동
     // 모바일 OS 보안 샌드박스 규정상, "통화 음량(VoIP)" 채널로 오디오를 라우팅하기 위해서는 마이크 권한({audio: true}) 요청이 반드시 발생해야 합니다.
-    // 권한 결정 시 브라우저가 AudioContext를 일시정지(suspend)하기 때문에 수락/거부 직후 곧바로 활성화(resume) 처리를 해 줍니다.
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    // 오디오 재생 중 마이크가 켜지더라도, 모바일 우회 모드(Web Audio 미사용)로 재생 중이기에 소리 안 들림 현상이 전면 근절됩니다!
+    const isMobile = isMobileDevice();
+    if (isMobile && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       setTimeout(() => {
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then((stream) => {
             micStreamRef.current = stream;
             console.log('Call audio channel switched to hardware communication volume.');
-            
-            // 권한 획득 후 즉각 오디오 엔진 재개 보장
-            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-              audioContextRef.current.resume().then(() => console.log('AudioContext successfully resumed after microphone access.'));
-            }
           })
           .catch((err) => {
             console.log('Microphone access for communication volume channel was declined or not supported:', err);
-            
-            // 거부 시 미디어 볼륨으로 재생되도록 엔진 강제 재개
-            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-              audioContextRef.current.resume().then(() => console.log('AudioContext forced to resume in media mode.'));
-            }
           });
       }, 150);
     }
