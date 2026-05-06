@@ -50,7 +50,7 @@ export default function IncomingScreen({ caller, onAccept, onDecline }) {
         
         {/* 안내 문구 */}
         <p className="text-[10px] text-white/30 text-center max-w-[280px] leading-normal font-light tracking-tight px-4">
-          ※ 실제 기기 수화기(전화 볼륨) 채널 전환을 재현하기 위해 수락 시 권한 요청이 발생할 수 있습니다. 음성은 수집되거나 기록되지 않습니다.
+          ※ 전화를 받으면 스피커폰으로 소리가 즉시 재생됩니다. 실제 수화기 통화를 원하시면 화면 속 '스피커폰' 단추를 꺼주세요.
         </p>
       </div>
     </div>
