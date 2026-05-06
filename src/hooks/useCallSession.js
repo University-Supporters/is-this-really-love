@@ -594,27 +594,40 @@ export function useCallSession() {
     stopVibration();
     setScreen('incall');
 
-    // [최고 중요] 오디오 재생 엔진 가동을 최우선으로 배치!
-    // 비동기 getUserMedia 나 오디오 세션 셋팅 등의 네트워크/권한 팝업 마이크로태스크 대기 시간으로 인해 
-    // 브라우저의 'User Gesture Token'(사용자 클릭 권한)이 소멸(Expiry)되는 사파리 특이 현상을 원천 차단하기 위함입니다.
-    if (config.caller?.audio) {
-      playAudio(config.caller.audio);
+    const isMobile = isMobileDevice();
+
+    // 1. [동기 조치 1] iOS 오디오 하드웨어 채널 세팅을 수화기 전용('play-and-record')으로 우선 변경합니다.
+    // 재생을 개시하기 전에 기기 모드를 확실히 맞춰두어, 재생 도중 라우팅이 바뀌어 오디오 데몬이 꼬이거나 음량이 속삭임(무음)으로 변하는 문제를 완벽 예방합니다.
+    if (isMobile && !isSpeaker && navigator.audioSession) {
+      try {
+        navigator.audioSession.type = 'play-and-record';
+        console.log('Synchronously set audioSession.type to play-and-record.');
+      } catch (err) {
+        console.log('navigator.audioSession pre-setting failed:', err);
+      }
     }
 
-    const isMobile = isMobileDevice();
+    // 2. [동기 조치 2] 클릭 사용자 제스처 토큰이 소멸하기 전에 AudioContext를 즉시 생성/활성화해 둡니다.
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === 'closed') {
+        try {
+          ctx = new AudioContext({ sampleRate: 44100, latencyHint: 'playout' });
+        } catch (e) {
+          ctx = new AudioContext();
+        }
+        audioContextRef.current = ctx;
+      }
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch((e) => console.log('Resume accept context error:', e));
+      }
+    }
+
+    // 3. [비동기 조치] 마이크 입력 활성화 (이 작업은 비동기 딜레이가 있더라도 위의 1, 2번에서 컨텍스트와 권한 확보를 끝마쳤기 때문에 완벽히 안전합니다)
     if (isMobile && !isSpeaker) {
-      // 선허용된 마이크 스트림이 없다면 여기서 다시 획득을 시도합니다.
       if (!micStreamRef.current) {
         console.log('No pre-authorized mic stream. Requesting microphone now...');
-        
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'play-and-record';
-          } catch (err) {
-            console.log('navigator.audioSession setting failed:', err);
-          }
-        }
-
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -626,14 +639,12 @@ export function useCallSession() {
         }
       } else {
         console.log('Reusing pre-authorized mic stream in handleAccept.');
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'play-and-record';
-          } catch (err) {
-            console.log('navigator.audioSession setting failed:', err);
-          }
-        }
       }
+    }
+
+    // 4. [재생 시작] 오디오 수화기 채널과 제스처 토큰이 100% 안착된 상태에서 즉시 소리를 재생합니다.
+    if (config.caller?.audio) {
+      playAudio(config.caller.audio);
     }
   };
 
