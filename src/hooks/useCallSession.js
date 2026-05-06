@@ -22,8 +22,8 @@ export function useCallSession() {
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
 
-  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (스피커폰이 기본 활성화되어 모바일 기기 무음 문제를 예방합니다)
-  const [isSpeaker, setIsSpeaker] = useState(true);
+  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (기본 통화음은 수화기 모드로 시작되도록 설정합니다)
+  const [isSpeaker, setIsSpeaker] = useState(false);
   const audioContextRef = useRef(null);
   const sourceNodeRef = useRef(null);
   const hpFilterRef = useRef(null);
@@ -287,20 +287,35 @@ export function useCallSession() {
     stopVibration();
     setScreen('incall');
 
-    // 1. 오디오 재생 엔진 가동 (스피커폰이 온이므로 미디어 채널로 아주 또렷하고 크게 잘 들립니다!)
+    // 모바일 기기이면서 스피커폰이 비활성화인 수화기 상태일 때, 수화기 통화 모드 트리거를 위한 마이크 스트림을 시작합니다.
+    const isMobile = isMobileDevice();
+    if (isMobile && !isSpeaker) {
+      console.log('Mobile initial Earpiece mode: requesting mic stream to route to earpiece call volume.');
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then((stream) => {
+            micStreamRef.current = stream;
+          })
+          .catch((err) => {
+            console.log('Microphone access for initial earpiece routing failed:', err);
+          });
+      }
+    }
+
+    // 오디오 재생 엔진 가동
     if (config.caller?.audio) playAudio(config.caller.audio);
   };
 
   const handleDecline = () => {
     stopVibration();
     stopAudio();
-    setIsSpeaker(true);
+    setIsSpeaker(false);
     setScreen('info');
   };
 
   const handleHangUp = () => {
     stopAudio();
-    setIsSpeaker(true);
+    setIsSpeaker(false);
     playStaticNoise();
     setScreen('ending');
     

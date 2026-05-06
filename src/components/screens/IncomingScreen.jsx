@@ -50,7 +50,7 @@ export default function IncomingScreen({ caller, onAccept, onDecline }) {
         
         {/* 안내 문구 */}
         <p className="text-[10px] text-white/30 text-center max-w-[280px] leading-normal font-light tracking-tight px-4">
-          ※ 전화를 받으면 스피커폰으로 소리가 즉시 재생됩니다. 실제 수화기 통화를 원하시면 화면 속 '스피커폰' 단추를 꺼주세요.
+          ※ 전화를 받으면 귀에 대고 통화하는 수화기로 소리가 출력됩니다. 스피커로 크게 듣고 싶으시면 화면 속 '스피커폰' 단추를 켜주세요.
         </p>
       </div>
     </div>
