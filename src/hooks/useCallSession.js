@@ -281,6 +281,24 @@ export function useCallSession() {
     setScreen('incoming');
     startVibration();
     triggerFullscreen();
+
+    // [마이크 권한 조기 획득을 통한 수락 경험 극대화]
+    // 유저가 수락을 누르는 찰나에 팝업창이 뜨면 흐름이 심하게 단절되므로,
+    // 전화가 울리기 시작하는(vibrating & ringing) 대기 시점에 마이크 권한 요청을 미리 가동시킵니다.
+    // 이를 통해 유저가 수락을 누를 때는 권한 창이나 레이턴시 없이 즉시 수화음이 생생하게 연동됩니다.
+    const isMobile = isMobileDevice();
+    if (isMobile && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      setTimeout(() => {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then((stream) => {
+            micStreamRef.current = stream;
+            console.log('Pre-acquired mic stream during incoming ring state.');
+          })
+          .catch((err) => {
+            console.log('Pre-acquiring mic stream was declined or failed:', err);
+          });
+      }, 300); // 렌더링 안정화 후 요청이 뜨도록 약간의 딜레이 보정
+    }
   };
 
   const handleAccept = () => {
@@ -290,21 +308,18 @@ export function useCallSession() {
     // 1. 오디오 재생 엔진 가동
     if (config.caller?.audio) playAudio(config.caller.audio);
 
-    // 2. 모바일 기기 통화 볼륨 채널 동조화 가동
-    // 모바일 OS 보안 샌드박스 규정상, "통화 음량(VoIP)" 채널로 오디오를 라우팅하기 위해서는 마이크 권한({audio: true}) 요청이 반드시 발생해야 합니다.
-    // 오디오 재생 중 마이크가 켜지더라도, 모바일 우회 모드(Web Audio 미사용)로 재생 중이기에 소리 안 들림 현상이 전면 근절됩니다!
+    // 2. 혹시 전화벨이 울리는 도중 유저가 수락 버튼을 기습적으로 빨리 눌러
+    // 아직 마이크 권한 획득 스트림이 완료되지 않은 돌발 상황에 대비해 예외 복구(Fallback) 구동
     const isMobile = isMobileDevice();
-    if (isMobile && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      setTimeout(() => {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then((stream) => {
-            micStreamRef.current = stream;
-            console.log('Call audio channel switched to hardware communication volume.');
-          })
-          .catch((err) => {
-            console.log('Microphone access for communication volume channel was declined or not supported:', err);
-          });
-      }, 150);
+    if (isMobile && !micStreamRef.current && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          micStreamRef.current = stream;
+          console.log('Fallback call audio channel switched to hardware communication volume.');
+        })
+        .catch((err) => {
+          console.log('Fallback microphone access failed or was declined:', err);
+        });
     }
   };
 
