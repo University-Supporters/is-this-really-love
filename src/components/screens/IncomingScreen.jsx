@@ -20,7 +20,7 @@ export default function IncomingScreen({ caller, onAccept, onDecline }) {
       {/* 발신자 정보 */}
       <div className="relative z-10 text-center mt-10">
         {caller?.image && (
-          <div className="w-24 h-24 rounded-full mx-auto mb-6 border-2 border-white/20 overflow-hidden shadow-2xl animate-vibrate">
+          <div className="w-24 h-24 rounded-full mx-auto mb-6 border-2 border-white/20 overflow-hidden shadow-2xl">
             <img src={caller.image} alt="" className="w-full h-full object-cover" />
           </div>
         )}
