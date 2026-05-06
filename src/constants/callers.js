@@ -9,8 +9,8 @@ export const CALLERS = {
     { name: '도윤이',      audio: `${BASE}audio/male_5.mp3`, image: `${BASE}images/male_5.jpg` },
   ],
   male: [
-    { name: '지연이',         audio: `${BASE}audio/female_1.mp3`, image: `${BASE}images/female_1.jpg` },
-    { name: '수진이',         audio: `${BASE}audio/female_2.mp3`, image: `${BASE}images/female_2.jpg` },
+    { name: '지연이',         audio: `${BASE}audio/female_1.m4a`, image: `${BASE}images/female_1.jpg` },
+    { name: '수진이',         audio: `${BASE}audio/female_2.m4a`, image: `${BASE}images/female_2.jpg` },
     { name: '우리 공주님 👸', audio: `${BASE}audio/female_3.mp3`, image: `${BASE}images/female_3.jpg` },
     { name: '하은이',         audio: `${BASE}audio/female_4.mp3`, image: `${BASE}images/female_4.jpg` },
     { name: '서연이',         audio: `${BASE}audio/female_5.mp3`, image: `${BASE}images/female_5.jpg` },
