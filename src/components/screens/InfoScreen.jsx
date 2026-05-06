@@ -148,19 +148,21 @@ export default function InfoScreen({ onRestart }) {
         </AnimatedSection>
 
         {/* 3. 최종 액션 버튼 */}
-        <AnimatedSection className="flex flex-col gap-4 pt-8">
+        <AnimatedSection className="flex flex-col gap-5 pt-8">
           <button
             onClick={openInstagram}
             className="w-full py-5 rounded-3xl bg-gradient-to-br from-orange-500 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center gap-3 shadow-2xl shadow-pink-600/20 hover:scale-[1.02] active:scale-95 transition-all"
           >
             인권 서포터즈 인스타그램 <IconInsta />
           </button>
-          <button
-            onClick={onRestart}
-            className="w-full py-4 text-slate-500 font-bold hover:text-slate-300 transition-colors text-sm uppercase tracking-widest"
-          >
-            시작 화면으로 돌아가기
-          </button>
+          
+          {/* 모바일 하드웨어 완벽 초기화 및 시나리오 꼬임 방지를 위한 새로고침 유도 안내 카드 */}
+          <div className="w-full py-5 px-6 rounded-3xl bg-slate-900/50 border border-white/5 text-center break-keep">
+            <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed">
+              💡 다른 인물(시나리오)의 전화를 추가로 체험하시려면<br />
+              <strong className="text-indigo-400 font-bold">인터넷 페이지를 새로고침(F5)</strong>해 주세요.
+            </p>
+          </div>
         </AnimatedSection>
       </div>
     </div>
