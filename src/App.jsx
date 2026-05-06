@@ -27,6 +27,8 @@ const SCREENS = {
       caller={session.config.caller}
       formattedTime={session.formatTime(session.seconds)}
       onHangUp={session.handleHangUp}
+      isSpeaker={session.isSpeaker}
+      onToggleSpeaker={session.toggleSpeaker}
     />
   ),
   ending: () => (

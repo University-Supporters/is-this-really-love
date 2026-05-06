@@ -17,6 +17,13 @@ export function useCallSession() {
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
 
+  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref
+  const [isSpeaker, setIsSpeaker] = useState(false);
+  const audioContextRef = useRef(null);
+  const sourceNodeRef = useRef(null);
+  const hpFilterRef = useRef(null);
+  const lpFilterRef = useRef(null);
+
   // 이미지 프리로딩 (최초 마운트 1회)
   useEffect(() => {
     Object.values(CALLERS).flat().forEach(({ image }) => {
@@ -38,14 +45,95 @@ export function useCallSession() {
 
   // ── 오디오 ──────────────────────────────────────────
   const stopAudio = () => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    audioRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    // Web Audio 컨텍스트 및 필터 노드 정리
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch((e) => console.log('AudioContext close error:', e));
+    }
+    audioContextRef.current = null;
+    sourceNodeRef.current = null;
+    hpFilterRef.current = null;
+    lpFilterRef.current = null;
+  };
+
+  const updateAudioRouting = (speakerOn) => {
+    if (!audioContextRef.current || !sourceNodeRef.current) return;
+
+    try {
+      const ctx = audioContextRef.current;
+      const source = sourceNodeRef.current;
+      const hpFilter = hpFilterRef.current;
+      const lpFilter = lpFilterRef.current;
+
+      source.disconnect();
+      if (hpFilter) hpFilter.disconnect();
+      if (lpFilter) lpFilter.disconnect();
+
+      if (speakerOn) {
+        // 스피커폰 켜짐: 소스에서 곧바로 오디오 출력 (생생한 원음 출력)
+        source.connect(ctx.destination);
+      } else if (hpFilter && lpFilter) {
+        // 스피커폰 꺼짐(수화기 기본): 소스 -> 하이패스 -> 로우패스 -> 최종 목적지 (실제 전화 수화기 사운드)
+        source.connect(hpFilter);
+        hpFilter.connect(lpFilter);
+        lpFilter.connect(ctx.destination);
+      } else {
+        source.connect(ctx.destination);
+      }
+    } catch (e) {
+      console.log('Error updating audio routing:', e);
+    }
+  };
+
+  const toggleSpeaker = () => {
+    setIsSpeaker((prev) => {
+      const next = !prev;
+      updateAudioRouting(next);
+      return next;
+    });
   };
 
   const playAudio = (src) => {
-    audioRef.current = new Audio(src);
-    audioRef.current.play().catch((e) => console.log('Audio play deferred:', e));
+    const audio = new Audio(src);
+    audioRef.current = audio;
+
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        audioContextRef.current = ctx;
+
+        const source = ctx.createMediaElementSource(audio);
+        sourceNodeRef.current = source;
+        
+        // 1. 하이패스 필터 (저역대 차단 - 400Hz 이하 차단으로 전화기 특유의 카랑카랑함 확보)
+        const hpFilter = ctx.createBiquadFilter();
+        hpFilter.type = 'highpass';
+        hpFilter.frequency.setValueAtTime(400, ctx.currentTime);
+        hpFilterRef.current = hpFilter;
+
+        // 2. 로우패스 필터 (고역대 차단 - 3000Hz 이상 차단으로 전화선 통과 톤 구현)
+        const lpFilter = ctx.createBiquadFilter();
+        lpFilter.type = 'lowpass';
+        lpFilter.frequency.setValueAtTime(3000, ctx.currentTime);
+        lpFilterRef.current = lpFilter;
+
+        if (isSpeaker) {
+          source.connect(ctx.destination);
+        } else {
+          source.connect(hpFilter);
+          hpFilter.connect(lpFilter);
+          lpFilter.connect(ctx.destination);
+        }
+      }
+    } catch (e) {
+      console.log('Web Audio API not supported or blocked, playing raw audio:', e);
+    }
+
+    audio.play().catch((e) => console.log('Audio play deferred:', e));
   };
 
   /** 통화 종료 시 강렬한 노이즈 사운드 생성 */
@@ -139,11 +227,13 @@ export function useCallSession() {
   const handleDecline = () => {
     stopVibration();
     stopAudio();
+    setIsSpeaker(false);
     setScreen('info');
   };
 
   const handleHangUp = () => {
     stopAudio();
+    setIsSpeaker(false);
     playStaticNoise();
     setScreen('ending');
     
@@ -156,6 +246,7 @@ export function useCallSession() {
   const handleRestart = () => {
     setConfig({ gender: null, caller: null });
     setSeenCallers([]);
+    setIsSpeaker(false);
     setScreen('selection');
   };
 
@@ -177,5 +268,7 @@ export function useCallSession() {
     handleDecline,
     handleHangUp,
     handleRestart,
+    isSpeaker,
+    toggleSpeaker,
   };
 }
