@@ -23,7 +23,6 @@ export function useCallSession() {
   const sourceNodeRef = useRef(null);
   const hpFilterRef = useRef(null);
   const lpFilterRef = useRef(null);
-  const micStreamRef = useRef(null);
 
   // 이미지 프리로딩 (최초 마운트 1회)
   useEffect(() => {
@@ -49,15 +48,6 @@ export function useCallSession() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
-    }
-    // 마이크 스트림을 해제하여 디바이스 마이크 점유 표시등을 끄고 미디어 볼륨 채널로 완벽 환원
-    if (micStreamRef.current) {
-      try {
-        micStreamRef.current.getTracks().forEach((track) => track.stop());
-      } catch (e) {
-        console.log('Error stopping mic tracks:', e);
-      }
-      micStreamRef.current = null;
     }
     // Web Audio 컨텍스트 및 필터 노드 정리
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -242,35 +232,8 @@ export function useCallSession() {
     stopVibration();
     setScreen('incall');
 
-    // 1. 오디오 재생 엔진 가동
+    // 오디오 재생 엔진 가동 (마이크 권한 팝업을 전면 배제하여 유저 경험을 극대화하며, Web Audio 필터만으로 리얼한 수화기 음색을 100% 동일하게 재현합니다)
     if (config.caller?.audio) playAudio(config.caller.audio);
-
-    // 2. 모바일 기기 통화 볼륨 채널 동조화 가동
-    // 브라우저 권한 팝업창이 뜨면 일시적으로 AudioContext가 정지(suspended)되므로,
-    // 권한 결정 직후(.then/.catch) 명시적으로 오디오 엔진을 강제 깨우도록 연동합니다.
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      // 오디오 로딩과 채널 전환 충돌을 방지하기 위해 150ms 미세 딜레이 적용
-      setTimeout(() => {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then((stream) => {
-            micStreamRef.current = stream;
-            console.log('Call audio channel switched to hardware communication volume.');
-            
-            // 스트림 획득 성공 후 오디오 컨텍스트가 멈춰있다면 즉시 재개
-            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-              audioContextRef.current.resume().then(() => console.log('AudioContext successfully resumed after microphone access.'));
-            }
-          })
-          .catch((err) => {
-            console.log('Microphone access for communication volume channel was declined or not supported:', err);
-            
-            // 거절되더라도 미디어 사운드로 정상 재생될 수 있도록 컨텍스트 재개 강제 수행
-            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-              audioContextRef.current.resume().then(() => console.log('AudioContext forced to resume in media mode.'));
-            }
-          });
-      }, 150);
-    }
   };
 
   const handleDecline = () => {
