@@ -5,7 +5,6 @@ export default function SelectionScreen({ config, setConfig, onStart }) {
   const genders = [
     { key: 'female', label: '여성' },
     { key: 'male',   label: '남성' },
-    { key: 'all',    label: '성별 무관' },
   ];
 
   return (
@@ -25,7 +24,7 @@ export default function SelectionScreen({ config, setConfig, onStart }) {
             당신의 성별은?
           </label>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {genders.map(({ key, label }) => {
               const isSelected = config.gender === key;
               return (
@@ -33,7 +32,7 @@ export default function SelectionScreen({ config, setConfig, onStart }) {
                   key={key}
                   onClick={() => setConfig((prev) => ({ ...prev, gender: key }))}
                   className={`
-                    p-4 sm:p-6 rounded-2xl font-bold border transition-all duration-300 backdrop-blur-md text-base sm:text-lg
+                    p-5 sm:p-6 rounded-2xl font-bold border transition-all duration-300 backdrop-blur-md text-lg
                     ${isSelected
                       ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.4)] text-white'
                       : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-700/50'}
