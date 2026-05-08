@@ -112,19 +112,6 @@ export function useCallSession() {
     }
   }, [screen]);
 
-  // 브라우저 새로고침/이탈 시 Web Audio 및 마이크 스트림 안전 정지 및 하드웨어 자원 즉각 반환
-  useEffect(() => {
-    const handleUnload = () => {
-      stopAudio();
-    };
-    window.addEventListener('beforeunload', handleUnload);
-    window.addEventListener('pagehide', handleUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      window.removeEventListener('pagehide', handleUnload);
-    };
-  }, []);
-
   // ── 오디오 ──────────────────────────────────────────
   const stopAudio = () => {
     if (audioRef.current) {
