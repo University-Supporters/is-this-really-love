@@ -112,6 +112,19 @@ export function useCallSession() {
     }
   }, [screen]);
 
+  // 브라우저 새로고침/이탈 시 Web Audio 및 마이크 스트림 안전 정지 및 하드웨어 자원 즉각 반환
+  useEffect(() => {
+    const handleUnload = () => {
+      stopAudio();
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, []);
+
   // ── 오디오 ──────────────────────────────────────────
   const stopAudio = () => {
     if (audioRef.current) {
@@ -317,25 +330,37 @@ export function useCallSession() {
     const isAnd = isAndroidDevice();
 
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) throw new Error('Web Audio API not supported');
+      // handleStart에서 사전에 생성한 AudioContext가 존재하고 유효하다면 재사용, 없다면 새로 생성
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === 'closed') {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) throw new Error('Web Audio API not supported');
+        ctx = new AudioContext({
+          sampleRate: 44100,
+          latencyHint: 'playout'
+        });
+        audioContextRef.current = ctx;
+      }
 
-      const ctx = new AudioContext({
-        sampleRate: 44100,
-        latencyHint: 'playout'
-      });
-      audioContextRef.current = ctx;
+      // 오디오 컨텍스트가 suspended 상태인 경우 활성화
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(e => console.log('Context resume error:', e));
+      }
 
-      // 1. 순수 바이너리 데이터로 오디오 파일 강제 다운로드 및 자체 디코딩
-      // HTML5 <audio> 엘리먼트를 아예 배제하여 크롬의 잦은 파일 파싱/라우팅 버그를 100% 회피합니다.
-      const response = await fetch(`${src}?v=${Date.now()}`);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      // 1. 오디오 파일 획득 및 디코딩 (HTML5 <audio> 사용을 회피하여 브라우저 가상 볼륨/라우팅 버그 차단)
+      let audioBuffer;
+      if (src instanceof AudioBuffer) {
+        audioBuffer = src;
+      } else {
+        const response = await fetch(`${src}?v=${Date.now()}`);
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      }
 
       // 만약 다운로드/디코딩 도중 전화를 끊었다면 컨텍스트가 닫혔을 것이므로 재생 중단
       if (ctx.state === 'closed') return;
 
-      // 2. 디코딩된 바이너리 버퍼를 메모리에 직접 얹어 소스 노드 생성
+      // 2. 디코딩된 오디오 버퍼를 직접 주입하여 소스 노드 생성
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
@@ -436,6 +461,13 @@ export function useCallSession() {
 
       oscillator.start();
       oscillator.stop(ctx.currentTime + 1);
+
+      // 리소스 누수 방지를 위해 재생 종료 후 static noise 전용 AudioContext 안전 폐쇄
+      setTimeout(() => {
+        if (ctx.state !== 'closed') {
+          ctx.close().catch((e) => console.log('Static noise AudioContext close error:', e));
+        }
+      }, 1200);
     } catch (e) {
       console.log('AudioContext not supported or blocked:', e);
     }
@@ -647,6 +679,7 @@ export function useCallSession() {
   };
 
   const handleRestart = () => {
+    stopAudio(); // 전전 세션의 모든 오디오 컨텍스트 및 트랙 하드웨어 채널 완전 정리
     setConfig({ gender: null, caller: null });
     decodedBufferRef.current = null; // 사전 디코딩된 백그라운드 오디오 버퍼 초기화
     // '다시 하기'를 눌러 처음으로 돌아가더라도 세션 동안 마주한 발신자 히스토리(seenCallers)를 보존합니다.
