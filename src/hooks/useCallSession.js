@@ -40,7 +40,7 @@ export function useCallSession() {
   const hpFilterRef = useRef(null);
   const lpFilterRef = useRef(null);
   const micStreamRef = useRef(null);
-  const decodedBufferRef = useRef(null); // 사전 디코딩된 발신자 음성 버퍼 저장소
+  const prefetchedBufferRef = useRef(null); // 사전 다운로드된 발신자 음성 ArrayBuffer 저장소
 
   // 이미지 및 오디오 에셋 선적재 프리로딩 (최초 마운트 1회)
   useEffect(() => {
@@ -200,6 +200,7 @@ export function useCallSession() {
       if (androidStreamAudioRef.current) {
         try {
           androidStreamAudioRef.current.pause();
+          androidStreamAudioRef.current.srcObject = null;
         } catch (e) {}
         androidStreamAudioRef.current = null;
       }
@@ -208,8 +209,7 @@ export function useCallSession() {
         // 스피커폰 켜짐: 기본 오디오 출력지(Loudspeaker)로 직접 연결
         masterGain.connect(ctx.destination);
       } else {
-        // 스피커폰 꺼짐(수화기): 안드로이드 크롬 수화기 강제 라우팅
-        // (이제 HTML5 Audio 엘리먼트를 배제했으므로 스피커 누출(Bleeding) 버그가 원천 차단되어 무음 게인 트릭이 불필요합니다)
+        // 스피커폰 꺼짐(수화기): 모바일(iOS 및 안드로이드) 수화기 강제 라우팅
         const dest = ctx.createMediaStreamDestination();
         if (hpFilter && lpFilter) {
           masterGain.connect(hpFilter);
@@ -220,8 +220,11 @@ export function useCallSession() {
         }
 
         const streamAudio = new Audio();
+        streamAudio.muted = false;
+        streamAudio.autoplay = true;
+        streamAudio.setAttribute('playsinline', 'true');
         streamAudio.srcObject = dest.stream;
-        streamAudio.play().catch((e) => console.log('Android stream audio play failed:', e));
+        streamAudio.play().catch((e) => console.log('Mobile stream audio play failed:', e));
         androidStreamAudioRef.current = streamAudio;
       }
     } catch (e) {
@@ -241,9 +244,7 @@ export function useCallSession() {
         // 스피커폰 켬 (수화기 -> 스피커)
         console.log('Mobile Speakerphone ON: releasing mic stream to route to standard loudspeaker.');
         
-        if (isAnd) {
-          updateMobileAudioRouting(true);
-        }
+        updateMobileAudioRouting(true);
 
         if (navigator.audioSession) {
           try {
@@ -295,9 +296,7 @@ export function useCallSession() {
           }
         }
 
-        if (isAnd) {
-          updateMobileAudioRouting(false);
-        }
+        updateMobileAudioRouting(false);
       }
     } else {
       // 데스크톱: 기존 Web Audio API 필터 라우팅 바이패스 제어
@@ -338,6 +337,10 @@ export function useCallSession() {
       let audioBuffer;
       if (src instanceof AudioBuffer) {
         audioBuffer = src;
+      } else if (prefetchedBufferRef.current) {
+        // 프리패치된 ArrayBuffer 복사본을 생성해 가동 중인 컨텍스트에서 안전하게 디코딩 진행
+        const bufferCopy = prefetchedBufferRef.current.slice(0);
+        audioBuffer = await ctx.decodeAudioData(bufferCopy);
       } else {
         const response = await fetch(`${src}?v=${Date.now()}`);
         const arrayBuffer = await response.arrayBuffer();
@@ -387,16 +390,19 @@ export function useCallSession() {
       lpFilterRef.current = lpFilter;
 
       // 5. 라우팅 연결
-      if (isMobile && isAnd && !isSpeaker) {
-        // 안드로이드 크롬 수화기 강제 라우팅
+      if (isMobile && !isSpeaker) {
+        // 모바일(iOS 및 안드로이드) 수화기 강제 라우팅
         const dest = ctx.createMediaStreamDestination();
         masterGain.connect(hpFilter);
         hpFilter.connect(lpFilter);
         lpFilter.connect(dest);
 
         const streamAudio = new Audio();
+        streamAudio.muted = false;
+        streamAudio.autoplay = true;
+        streamAudio.setAttribute('playsinline', 'true');
         streamAudio.srcObject = dest.stream;
-        streamAudio.play().catch(e => console.log('Android stream play error:', e));
+        streamAudio.play().catch(e => console.log('Mobile stream play error:', e));
         androidStreamAudioRef.current = streamAudio;
       } else {
         if (isSpeaker) {
@@ -546,12 +552,11 @@ export function useCallSession() {
 
         fetch(`${caller.audio}?v=${Date.now()}`)
           .then(res => res.arrayBuffer())
-          .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
-          .then(audioBuffer => {
-            decodedBufferRef.current = audioBuffer;
-            console.log('Background voice decoding completed and cached.');
+          .then(arrayBuffer => {
+            prefetchedBufferRef.current = arrayBuffer;
+            console.log('Background voice raw binary pre-fetched and cached safely.');
           })
-          .catch(err => console.log('Background audio pre-decoding failed:', err));
+          .catch(err => console.log('Background audio pre-fetch failed:', err));
       }
     } catch (e) {
       console.log('Background AudioContext initialization failed:', e);
@@ -575,15 +580,9 @@ export function useCallSession() {
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
-          // 중요: 브라우저 마이크 승인 팝업을 미리 띄워 허용을 받아놓기만 합니다.
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          
-          // 권한 승인을 획득했으므로, 대기 화면 동안 하드웨어 오디오 채널 충돌을 막기 위해 
-          // 획득한 테스트 스트림의 모든 트랙을 즉시 정지시켜 폰 마이크를 완전히 꺼둡니다.
-          stream.getTracks().forEach((track) => track.stop());
-          micStreamRef.current = null; // null로 비워두어 수락 클릭 시 새 깨끗한 통화 스트림을 즉시 따오도록 합니다.
-          
-          console.log('Microphone pre-authorized and released immediately to avoid HW conflicts.');
+          micStreamRef.current = stream;
+          console.log('Microphone stream acquired and kept active to lock earpiece routing.');
         } catch (err) {
           console.log('Microphone pre-authorization denied or failed:', err);
         }
@@ -642,8 +641,8 @@ export function useCallSession() {
       }
     }
 
-    // 오디오 재생 엔진 가동 (사전 디코딩된 오디오 버퍼가 존재할 경우 버퍼를 사용해 무지연/무차단 즉시 재생)
-    const audioTarget = decodedBufferRef.current || config.caller?.audio;
+    // 오디오 재생 엔진 가동 (내부적으로 prefetchedBufferRef.current에 다운로드된 원시 데이터가 있다면 즉각 사용)
+    const audioTarget = config.caller?.audio;
     if (audioTarget) playAudio(audioTarget);
   };
 
@@ -676,7 +675,7 @@ export function useCallSession() {
   const handleRestart = () => {
     stopAudio(); // 전전 세션의 모든 오디오 컨텍스트 및 트랙 하드웨어 채널 완전 정리
     setConfig({ gender: null, caller: null });
-    decodedBufferRef.current = null; // 사전 디코딩된 백그라운드 오디오 버퍼 초기화
+    prefetchedBufferRef.current = null; // 사전 다운로드된 백그라운드 오디오 버퍼 초기화
     // '다시 하기'를 눌러 처음으로 돌아가더라도 세션 동안 마주한 발신자 히스토리(seenCallers)를 보존합니다.
     // 이를 통해 모든 인물을 돌아가며 1회씩 중복 없이 반드시 마주할 수 있게 편향 현상을 완벽히 해소합니다.
     setIsSpeaker(false);
