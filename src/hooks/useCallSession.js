@@ -83,7 +83,63 @@ export function useCallSession() {
 
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
-  const androidStreamAudioRef = useRef(null); // 안드로이드용 가상 스트림 재생 오디오 참조
+
+  // WebRTC Loopback for Android Earpiece Routing
+  const webRTCPcRefs = useRef({ pc1: null, pc2: null, streamAudio: null });
+
+  const clearWebRTC = () => {
+    if (webRTCPcRefs.current.pc1) {
+      try { webRTCPcRefs.current.pc1.close(); } catch(e) {}
+      webRTCPcRefs.current.pc1 = null;
+    }
+    if (webRTCPcRefs.current.pc2) {
+      try { webRTCPcRefs.current.pc2.close(); } catch(e) {}
+      webRTCPcRefs.current.pc2 = null;
+    }
+    if (webRTCPcRefs.current.streamAudio) {
+      try {
+        webRTCPcRefs.current.streamAudio.pause();
+        webRTCPcRefs.current.streamAudio.srcObject = null;
+      } catch(e) {}
+      webRTCPcRefs.current.streamAudio = null;
+    }
+  };
+
+  const playViaWebRTC = async (sourceStream) => {
+    clearWebRTC();
+
+    const pc1 = new window.RTCPeerConnection();
+    const pc2 = new window.RTCPeerConnection();
+    webRTCPcRefs.current.pc1 = pc1;
+    webRTCPcRefs.current.pc2 = pc2;
+
+    pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(() => {});
+    pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(() => {});
+
+    sourceStream.getTracks().forEach(track => pc1.addTrack(track, sourceStream));
+
+    pc2.ontrack = e => {
+      if (!webRTCPcRefs.current.streamAudio) {
+        const streamAudio = new window.Audio();
+        streamAudio.autoplay = true;
+        streamAudio.setAttribute('playsinline', 'true');
+        streamAudio.srcObject = e.streams[0];
+        streamAudio.play().catch(err => console.log('WebRTC audio play error:', err));
+        webRTCPcRefs.current.streamAudio = streamAudio;
+      }
+    };
+
+    try {
+      const offer = await pc1.createOffer();
+      await pc1.setLocalDescription(offer);
+      await pc2.setRemoteDescription(offer);
+      const answer = await pc2.createAnswer();
+      await pc2.setLocalDescription(answer);
+      await pc1.setRemoteDescription(answer);
+    } catch (e) {
+      console.log('WebRTC loopback setup error:', e);
+    }
+  };
 
   // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (기본 통화음은 수화기 모드로 시작되도록 설정합니다)
   const [isSpeaker, setIsSpeaker] = useState(false);
@@ -248,15 +304,7 @@ export function useCallSession() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    // 안드로이드 가상 미디어스트림 오디오 정지 및 정리
-    if (androidStreamAudioRef.current) {
-      try {
-        androidStreamAudioRef.current.pause();
-      } catch (e) {
-        console.log('Error stopping android stream audio:', e);
-      }
-      androidStreamAudioRef.current = null;
-    }
+    clearWebRTC();
     // 마이크 스트림을 해제하여 디바이스 마이크 점유 표시등을 끄고 미디어 볼륨 채널로 완벽 환원
     if (micStreamRef.current) {
       try {
@@ -298,6 +346,8 @@ export function useCallSession() {
       if (hpFilter) hpFilter.disconnect();
       if (lpFilter) lpFilter.disconnect();
 
+      clearWebRTC();
+
       if (speakerOn) {
         // 스피커폰 켜짐: 소스에서 곧바로 오디오 출력 (생생한 원음 출력)
         source.connect(ctx.destination);
@@ -305,7 +355,14 @@ export function useCallSession() {
         // 스피커폰 꺼짐(수화기 기본): 소스 -> 하이패스 -> 로우패스 -> 최종 목적지 (실제 전화 수화기 사운드)
         source.connect(hpFilter);
         hpFilter.connect(lpFilter);
-        lpFilter.connect(ctx.destination);
+        
+        if (isAndroidDevice()) {
+          const dest = ctx.createMediaStreamDestination();
+          lpFilter.connect(dest);
+          playViaWebRTC(dest.stream);
+        } else {
+          lpFilter.connect(ctx.destination);
+        }
       } else {
         source.connect(ctx.destination);
       }
@@ -314,68 +371,18 @@ export function useCallSession() {
     }
   };
 
-  const updateMobileAudioRouting = (speakerOn) => {
-    if (!audioContextRef.current || !sourceNodeRef.current) return;
-
-    try {
-      const ctx = audioContextRef.current;
-      const masterGain = sourceNodeRef.current;
-      const hpFilter = hpFilterRef.current;
-      const lpFilter = lpFilterRef.current;
-
-      masterGain.disconnect();
-      if (hpFilter) hpFilter.disconnect();
-      if (lpFilter) lpFilter.disconnect();
-
-      if (androidStreamAudioRef.current) {
-        try {
-          androidStreamAudioRef.current.pause();
-          androidStreamAudioRef.current.srcObject = null;
-        } catch (e) {}
-        androidStreamAudioRef.current = null;
-      }
-
-      if (speakerOn) {
-        // 스피커폰 켜짐: 기본 오디오 출력지(Loudspeaker)로 직접 연결
-        masterGain.connect(ctx.destination);
-      } else {
-        // 스피커폰 꺼짐(수화기): 모바일(iOS 및 안드로이드) 수화기 강제 라우팅
-        const dest = ctx.createMediaStreamDestination();
-        if (hpFilter && lpFilter) {
-          masterGain.connect(hpFilter);
-          hpFilter.connect(lpFilter);
-          lpFilter.connect(dest);
-        } else {
-          masterGain.connect(dest);
-        }
-
-        const streamAudio = new Audio();
-        streamAudio.muted = false;
-        streamAudio.autoplay = true;
-        streamAudio.setAttribute('playsinline', 'true');
-        streamAudio.srcObject = dest.stream;
-        streamAudio.play().catch((e) => console.log('Mobile stream audio play failed:', e));
-        androidStreamAudioRef.current = streamAudio;
-      }
-    } catch (e) {
-      console.log('Error updating mobile audio routing:', e);
-    }
-  };
+  // updateMobileAudioRouting 제거됨 (모바일 환경도 direct Web Audio 및 active mic stream 강제 적용으로 통합 및 최적화 완료)
 
   const toggleSpeaker = async () => {
     const next = !isSpeaker;
     setIsSpeaker(next);
     
     const isMobile = isMobileDevice();
-    const isAnd = isAndroidDevice();
 
     if (isMobile) {
       if (next) {
         // 스피커폰 켬 (수화기 -> 스피커)
-        console.log('Mobile Speakerphone ON: releasing mic stream to route to standard loudspeaker.');
-        
-        updateMobileAudioRouting(true);
-
+        console.log('Mobile Speakerphone ON: setting audio session to playback and stopping mic stream.');
         if (navigator.audioSession) {
           try {
             navigator.audioSession.type = 'playback';
@@ -383,7 +390,7 @@ export function useCallSession() {
             console.log('navigator.audioSession type change error:', e);
           }
         }
-
+        updateAudioRouting(true);
         if (micStreamRef.current) {
           try {
             micStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -394,8 +401,7 @@ export function useCallSession() {
         }
       } else {
         // 스피커폰 끔 (스피커 -> 수화기)
-        console.log('Mobile Speakerphone OFF: requesting mic stream to route to earpiece call volume.');
-        
+        console.log('Mobile Speakerphone OFF: setting audio session to play-and-record and requesting fresh mic stream.');
         if (navigator.audioSession) {
           try {
             navigator.audioSession.type = 'play-and-record';
@@ -403,18 +409,21 @@ export function useCallSession() {
             console.log('navigator.audioSession type change error:', e);
           }
         }
-
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              }
+            });
             micStreamRef.current = stream;
-            console.log('Microphone stream re-acquired successfully for earpiece routing.');
+            console.log('Fresh microphone stream re-acquired successfully for earpiece routing.');
           } catch (err) {
             console.log('Microphone access for earpiece routing failed:', err);
           }
         }
-
-        // 마이크 획득 후 AudioContext 복구 및 수화기 라우팅 적용
         if (audioContextRef.current) {
           try {
             if (audioContextRef.current.state === 'suspended') {
@@ -425,8 +434,7 @@ export function useCallSession() {
             console.log('Error resuming AudioContext:', e);
           }
         }
-
-        updateMobileAudioRouting(false);
+        updateAudioRouting(false);
       }
     } else {
       // 데스크톱: 기존 Web Audio API 필터 라우팅 바이패스 제어
@@ -519,28 +527,32 @@ export function useCallSession() {
       lpFilter.frequency.setValueAtTime(3000, ctx.currentTime);
       lpFilterRef.current = lpFilter;
 
-      // 5. 라우팅 연결
-      if (isMobile && !isSpeaker) {
-        // 모바일(iOS 및 안드로이드) 수화기 강제 라우팅
-        const dest = ctx.createMediaStreamDestination();
+      // 5. 라우팅 연결 (모바일/데스크톱 통합 직결 구조)
+      if (isSpeaker) {
+        masterGain.connect(ctx.destination);
+      } else {
         masterGain.connect(hpFilter);
         hpFilter.connect(lpFilter);
-        lpFilter.connect(dest);
-
-        const streamAudio = new Audio();
-        streamAudio.muted = false;
-        streamAudio.autoplay = true;
-        streamAudio.setAttribute('playsinline', 'true');
-        streamAudio.srcObject = dest.stream;
-        streamAudio.play().catch(e => console.log('Mobile stream play error:', e));
-        androidStreamAudioRef.current = streamAudio;
-      } else {
-        if (isSpeaker) {
-          masterGain.connect(ctx.destination);
+        
+        if (isAndroidDevice()) {
+          const dest = ctx.createMediaStreamDestination();
+          lpFilter.connect(dest);
+          playViaWebRTC(dest.stream);
         } else {
-          masterGain.connect(hpFilter);
-          hpFilter.connect(lpFilter);
           lpFilter.connect(ctx.destination);
+        }
+
+        // 모바일 브라우저의 마이크 유휴 비활성화 방지를 위한 무음 연결 보장
+        if (isMobile && micStreamRef.current) {
+          try {
+            const micSource = ctx.createMediaStreamSource(micStreamRef.current);
+            const silentGain = ctx.createGain();
+            silentGain.gain.setValueAtTime(0, ctx.currentTime);
+            micSource.connect(silentGain);
+            silentGain.connect(ctx.destination);
+          } catch (e) {
+            console.log('Error linking mic source to AudioContext:', e);
+          }
         }
       }
 
@@ -675,7 +687,13 @@ export function useCallSession() {
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          });
           micStreamRef.current = stream;
           console.log('Microphone stream acquired and kept active to lock earpiece routing.');
         } catch (err) {
@@ -703,35 +721,37 @@ export function useCallSession() {
 
     const isMobile = isMobileDevice();
     if (isMobile && !isSpeaker) {
-      // 선허용된 마이크 스트림이 없다면 여기서 다시 획득을 시도합니다.
-      if (!micStreamRef.current) {
-        console.log('No pre-authorized mic stream. Requesting microphone now...');
-        
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'play-and-record';
-          } catch (err) {
-            console.log('navigator.audioSession setting failed:', err);
-          }
+      console.log('Stopping old mic stream (if any) and acquiring a fresh stream with voice constraints in handleAccept.');
+      if (micStreamRef.current) {
+        try {
+          micStreamRef.current.getTracks().forEach((track) => track.stop());
+        } catch (e) {
+          console.log('Error stopping mic tracks in handleAccept:', e);
         }
+        micStreamRef.current = null;
+      }
 
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            micStreamRef.current = stream;
-            console.log('Microphone access obtained successfully inside handleAccept.');
-          } catch (err) {
-            console.log('Microphone access failed inside handleAccept:', err);
-          }
+      if (navigator.audioSession) {
+        try {
+          navigator.audioSession.type = 'play-and-record';
+        } catch (err) {
+          console.log('navigator.audioSession setting failed:', err);
         }
-      } else {
-        console.log('Reusing pre-authorized mic stream in handleAccept.');
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'play-and-record';
-          } catch (err) {
-            console.log('navigator.audioSession setting failed:', err);
-          }
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          });
+          micStreamRef.current = stream;
+          console.log('Fresh microphone access obtained successfully inside handleAccept.');
+        } catch (err) {
+          console.log('Microphone access failed inside handleAccept:', err);
         }
       }
     }
