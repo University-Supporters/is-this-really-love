@@ -8,11 +8,11 @@ export default function SelectionScreen({ config, setConfig, onStart, loadProgre
   ];
 
   return (
-    <div className="flex flex-col items-center justify-between min-h-full max-h-full overflow-y-auto px-6 py-4 sm:py-10 animate-fade-in w-full">
-      {/* 상단 콘텐츠 래퍼 */}
-      <div className="flex flex-col items-center w-full max-w-md">
+    <div className="relative flex flex-col items-center justify-center min-h-full max-h-full overflow-y-auto px-6 py-6 animate-fade-in w-full">
+      {/* 중앙 콘텐츠 래퍼 */}
+      <div className="flex flex-col items-center w-full max-w-md my-auto pb-10 sm:pb-14">
         {/* 헤더 */}
-        <header className="text-center mb-3 sm:mb-6">
+        <header className="text-center mb-4 sm:mb-6">
           <h1 className="text-3xl sm:text-4xl font-extrabold mb-1.5 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
             체험 시작하기
           </h1>
@@ -94,7 +94,7 @@ export default function SelectionScreen({ config, setConfig, onStart, loadProgre
       </div>
 
       {/* 고지 문구 */}
-      <footer className="w-full text-center py-2 mt-2 sm:mt-4 z-10">
+      <footer className="absolute bottom-2 sm:bottom-4 left-0 right-0 text-center z-10">
         <p className="text-[10px] text-slate-500 opacity-70 leading-relaxed font-medium">
           본 사이트에 등장하는 인물은 모두 가상의 인물이며,<br />
           실제 녹음과 AI 사진으로 구성되어 있습니다.
