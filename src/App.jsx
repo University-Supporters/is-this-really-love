@@ -46,7 +46,7 @@ export default function App() {
   const ActiveScreen = SCREENS[session.screen];
 
   return (
-    <div className="relative w-full h-screen bg-[#0f172a] text-slate-100 overflow-hidden font-sans selection:bg-indigo-500/30">
+    <div className="relative w-full h-full h-screen h-dvh bg-[#0f172a] text-slate-100 overflow-hidden font-sans selection:bg-indigo-500/30">
       {ActiveScreen && <ActiveScreen session={session} />}
     </div>
   );

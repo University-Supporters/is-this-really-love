@@ -79,21 +79,28 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
   ];
 
   return (
-    <div className="relative flex flex-col items-center justify-between h-full py-12 px-6 animate-fade-in bg-[#0f172a]">
+    <div className="relative flex flex-col items-center justify-between h-full py-6 sm:py-12 px-6 animate-fade-in bg-[#0f172a]">
       {/* 발신자 정보 */}
-      <div className="text-center z-10 mt-2">
-        <div className="w-24 h-24 rounded-full bg-slate-800 mx-auto mb-6 border-4 border-slate-700 overflow-hidden shadow-2xl">
+      <div className="text-center z-10 mt-1 sm:mt-2 flex flex-col items-center">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-800 mx-auto mb-4 sm:mb-6 border-4 border-slate-700 overflow-hidden shadow-2xl">
           {caller?.image
             ? <img src={caller.image} alt="" className="w-full h-full object-cover" />
             : <IconUser />
           }
         </div>
-        <h2 className="text-2xl font-bold mb-2">{caller?.name}</h2>
+        <h2 className="text-2xl font-bold mb-1 sm:mb-2">{caller?.name}</h2>
         <p className="text-indigo-400 font-mono text-lg font-bold tabular-nums">{formattedTime}</p>
+
+        {/* 음파 애니메이션 */}
+        <div className="flex items-center justify-center gap-1.5 h-8 mt-4 sm:mt-5">
+          {Array.from({ length: 9 }, (_, i) => (
+            <WaveBar key={i} index={i} />
+          ))}
+        </div>
       </div>
 
       {/* 키패드 유틸리티 패널 */}
-      <div className="grid grid-cols-3 gap-x-8 gap-y-5 max-w-xs mx-auto z-10 my-4">
+      <div className="grid grid-cols-3 gap-x-8 gap-y-4 sm:gap-y-5 max-w-xs mx-auto z-10 my-2 sm:my-4">
         {buttons.map((btn) => {
           const isBtnActive = btn.active;
           return (
@@ -121,15 +128,8 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
         })}
       </div>
 
-      {/* 통화 종료 버튼 및 파동 */}
-      <div className="flex flex-col items-center gap-6 mb-2 w-full">
-        {/* 음파 애니메이션 */}
-        <div className="flex items-center justify-center gap-1.5 h-8">
-          {Array.from({ length: 9 }, (_, i) => (
-            <WaveBar key={i} index={i} />
-          ))}
-        </div>
-
+      {/* 통화 종료 버튼 */}
+      <div className="flex flex-col items-center mb-1 sm:mb-2 w-full z-10">
         <button
           onClick={onHangUp}
           className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-[0_0_40px_rgba(220,38,38,0.4)] hover:scale-110 active:scale-90 transition-transform"
