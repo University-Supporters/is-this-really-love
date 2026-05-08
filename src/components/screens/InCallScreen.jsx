@@ -79,64 +79,66 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
   ];
 
   return (
-    <div className="relative flex flex-col items-center justify-between h-full py-6 sm:py-12 px-6 animate-fade-in bg-[#0f172a]">
-      {/* 발신자 정보 */}
-      <div className="text-center z-10 mt-1 sm:mt-2 flex flex-col items-center">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-800 mx-auto mb-4 sm:mb-6 border-4 border-slate-700 overflow-hidden shadow-2xl">
-          {caller?.image
-            ? <img src={caller.image} alt="" className="w-full h-full object-cover" />
-            : <IconUser />
-          }
+    <div className="relative flex flex-col items-center justify-center h-full px-6 py-4 animate-fade-in bg-[#0f172a]">
+      <div className="w-full h-full max-h-[580px] flex flex-col items-center justify-between">
+        {/* 발신자 정보 */}
+        <div className="text-center z-10 flex flex-col items-center mt-2">
+          <div className="w-20 h-20 rounded-full bg-slate-800 mx-auto mb-3 border-4 border-slate-700 overflow-hidden shadow-2xl">
+            {caller?.image
+              ? <img src={caller.image} alt="" className="w-full h-full object-cover" />
+              : <IconUser />
+            }
+          </div>
+          <h2 className="text-2xl font-bold mb-1">{caller?.name}</h2>
+          <p className="text-indigo-400 font-mono text-lg font-bold tabular-nums">{formattedTime}</p>
         </div>
-        <h2 className="text-2xl font-bold mb-1 sm:mb-2">{caller?.name}</h2>
-        <p className="text-indigo-400 font-mono text-lg font-bold tabular-nums">{formattedTime}</p>
 
         {/* 음파 애니메이션 */}
-        <div className="flex items-center justify-center gap-1.5 h-8 mt-4 sm:mt-5">
+        <div className="flex items-center justify-center gap-1.5 h-8 z-10 my-1">
           {Array.from({ length: 9 }, (_, i) => (
             <WaveBar key={i} index={i} />
           ))}
         </div>
-      </div>
 
-      {/* 키패드 유틸리티 패널 */}
-      <div className="grid grid-cols-3 gap-x-8 gap-y-4 sm:gap-y-5 max-w-xs mx-auto z-10 my-2 sm:my-4">
-        {buttons.map((btn) => {
-          const isBtnActive = btn.active;
-          return (
-            <div key={btn.id} className="flex flex-col items-center">
-              <button
-                disabled={btn.disabled}
-                onClick={btn.action}
-                className={`
-                  w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300
-                  ${btn.disabled
-                    ? 'bg-slate-800/20 text-slate-600 cursor-not-allowed opacity-30'
-                    : isBtnActive
-                      ? 'bg-white text-slate-900 shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:bg-slate-100 active:scale-95'
-                      : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 active:scale-95'
-                  }
-                `}
-              >
-                {btn.icon}
-              </button>
-              <span className={`text-[11px] mt-2 font-medium tracking-wide ${btn.disabled ? 'text-slate-600/70' : isBtnActive ? 'text-white font-semibold' : 'text-slate-400'}`}>
-                {btn.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+        {/* 키패드 유틸리티 패널 */}
+        <div className="grid grid-cols-3 gap-x-6 gap-y-4 max-w-[280px] mx-auto z-10">
+          {buttons.map((btn) => {
+            const isBtnActive = btn.active;
+            return (
+              <div key={btn.id} className="flex flex-col items-center">
+                <button
+                  disabled={btn.disabled}
+                  onClick={btn.action}
+                  className={`
+                    w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300
+                    ${btn.disabled
+                      ? 'bg-slate-800/20 text-slate-600 cursor-not-allowed opacity-30'
+                      : isBtnActive
+                        ? 'bg-white text-slate-900 shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:bg-slate-100 active:scale-95'
+                        : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 active:scale-95'
+                    }
+                  `}
+                >
+                  {btn.icon}
+                </button>
+                <span className={`text-[11px] mt-1.5 font-medium tracking-wide ${btn.disabled ? 'text-slate-600/70' : isBtnActive ? 'text-white font-semibold' : 'text-slate-400'}`}>
+                  {btn.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
-      {/* 통화 종료 버튼 */}
-      <div className="flex flex-col items-center mb-1 sm:mb-2 w-full z-10">
-        <button
-          onClick={onHangUp}
-          className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-[0_0_40px_rgba(220,38,38,0.4)] hover:scale-110 active:scale-90 transition-transform"
-          aria-label="통화 종료"
-        >
-          <IconPhone rotate={135} />
-        </button>
+        {/* 통화 종료 버튼 */}
+        <div className="flex flex-col items-center w-full z-10">
+          <button
+            onClick={onHangUp}
+            className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-[0_0_40px_rgba(220,38,38,0.4)] hover:scale-110 active:scale-90 transition-transform"
+            aria-label="통화 종료"
+          >
+            <IconPhone rotate={135} />
+          </button>
+        </div>
       </div>
     </div>
   );
