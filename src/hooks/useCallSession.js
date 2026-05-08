@@ -14,6 +14,59 @@ const isAndroidDevice = () => {
   return /Android/i.test(navigator.userAgent);
 };
 
+// Fisher-Yates 셔플 알고리즘을 사용해 배열을 완전 무작위로 섞어주는 헬퍼 함수
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// 로컬 스토리지를 결합하여 페이지 새로고침이나 재접속 시에도 완벽하고 중복 없는 랜덤 발신자 큐 관리 함수
+const getNextPersistentCaller = (gender) => {
+  const pool = CALLERS[gender];
+  if (!pool || pool.length === 0) return null;
+
+  const storageKey = `is_this_really_love_queue_${gender}`;
+  let queue = [];
+
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      queue = JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to parse persistent caller queue:', e);
+  }
+
+  // 큐가 비어있거나, 실제 풀의 구성과 정합성이 맞지 않는 경우 새로 셔플하여 큐 생성
+  const poolNames = pool.map(c => c.name);
+  const isValidQueue = queue.length > 0 && queue.every(name => poolNames.includes(name));
+
+  if (!isValidQueue) {
+    console.log(`Generating a brand new Fisher-Yates shuffled queue for gender: ${gender}`);
+    queue = shuffleArray(poolNames);
+  }
+
+  // 큐에서 가장 첫 번째 발신자 추출
+  const nextName = queue.shift();
+
+  // 만약 큐가 이제 비었다면 다음을 위해 미리 reshuffle해서 적재
+  if (queue.length === 0) {
+    // 직전에 뽑은 발신자가 다음 사이클의 첫 번째로 연속해서 나오는 것을 막기 위해,
+    // 새로 섞을 때 해당 발신자를 제외하고 섞은 뒤 맨 마지막에 덧붙여 배제력을 극대화합니다.
+    let nextQueue = shuffleArray(poolNames.filter(name => name !== nextName));
+    nextQueue.push(nextName);
+    localStorage.setItem(storageKey, JSON.stringify(nextQueue));
+  } else {
+    localStorage.setItem(storageKey, JSON.stringify(queue));
+  }
+
+  return pool.find(c => c.name === nextName) || pool[0];
+};
+
 /**
  * 통화 세션의 전체 상태와 로직을 관리하는 커스텀 훅.
  * - 화면 전환 (selection → incoming → incall → info)
@@ -25,7 +78,6 @@ export function useCallSession() {
   const [screen, setScreen] = useState('selection');
   const [config, setConfig] = useState({ gender: null, caller: null });
   const [seconds, setSeconds] = useState(0);
-  const [seenCallers, setSeenCallers] = useState([]);
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -81,24 +133,8 @@ export function useCallSession() {
       return;
     }
 
-    const pool = CALLERS[config.gender];
-    // 이미 마주한 발신자를 배제한 후보 목록 생성
-    let candidates = pool.filter((c) => !seenCallers.includes(c.name));
-
-    // 모든 발신자를 최소 1회 마주했거나 후보군이 비어있다면 풀 복원
-    if (candidates.length === 0) {
-      candidates = pool;
-    }
-
-    const caller = candidates[Math.floor(Math.random() * candidates.length)];
-
-    // 비복원 랜덤 리스트 소진 시점 체크 및 히스토리 업데이트
-    const isExhausted = pool.filter((c) => !seenCallers.includes(c.name)).length <= 1;
-    if (isExhausted) {
-      setSeenCallers([caller.name]);
-    } else {
-      setSeenCallers((prev) => [...prev, caller.name]);
-    }
+    // 초강력 Fisher-Yates 로컬 스토리지 결합 무작위 셔플을 통해 최적의 발신자 배정
+    const caller = getNextPersistentCaller(config.gender);
 
     setConfig((prev) => ({ ...prev, caller }));
   }, [config.gender]);
