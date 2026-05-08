@@ -599,6 +599,14 @@ export function useCallSession() {
     stopVibration();
     setScreen('incall');
 
+    // [중요: User Gesture Token 확보]
+    // 모바일 브라우저(Safari, Chrome)는 click 이벤트 내에서 동기적으로 실행되는 명령에만 오디오 권한을 줍니다.
+    // 하단에 있는 await getUserMedia가 실행되면 이 동기적 제스처 토큰이 즉시 소멸해버립니다.
+    // 따라서 어떠한 비동기 작업(await)을 하기 전에 무조건 즉시 AudioContext를 깨워야 무음 버그가 사라집니다!
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(e => console.log('Context resume error:', e));
+    }
+
     const isMobile = isMobileDevice();
     if (isMobile && !isSpeaker) {
       // 선허용된 마이크 스트림이 없다면 여기서 다시 획득을 시도합니다.
