@@ -65,7 +65,7 @@ export default function SelectionScreen({ config, setConfig, onStart, loadProgre
           </div>
 
           {/* 미려한 글래스모피즘 에셋 사전로딩 진행 바 */}
-          {!isLoaded && (
+          {config.gender && !isLoaded && (
             <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-3 sm:p-4 space-y-2 backdrop-blur-md animate-pulse">
               <div className="flex justify-between text-[11px] sm:text-xs font-bold px-1 text-slate-300">
                 <span className="flex items-center gap-1.5">
@@ -88,7 +88,7 @@ export default function SelectionScreen({ config, setConfig, onStart, loadProgre
             onClick={() => onStart(config.gender)}
             className="w-full py-3.5 sm:py-4.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-lg sm:text-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale disabled:hover:scale-100"
           >
-            {isLoaded ? '시작하기' : `전화 준비 중 (${loadProgress}%)`}
+            {!config.gender ? '시작하기' : (isLoaded ? '시작하기' : `전화 준비 중 (${loadProgress}%)`)}
           </button>
         </div>
       </div>

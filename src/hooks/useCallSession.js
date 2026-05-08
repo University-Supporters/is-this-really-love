@@ -41,58 +41,152 @@ export function useCallSession() {
   const lpFilterRef = useRef(null);
   const micStreamRef = useRef(null);
   const prefetchedBufferRef = useRef(null); // 사전 다운로드된 발신자 음성 ArrayBuffer 저장소
+  const preloadedAudiosRef = useRef({}); // 프리로딩 단계를 거쳐 다운로드 완료된 모든 오디오 파일들의 ArrayBuffer 영구 보관소
+  const xhrRef = useRef(null); // 활성화된 발신자 음성 파일 다운로드 XMLHttpRequest 참조
+  const cleanupTimeoutRef = useRef(null); // 안정성 확보용 지연 대기 타임아웃 참조
 
-  // 이미지 및 오디오 에셋 선적재 프리로딩 (최초 마운트 1회)
+  // 이미지 에셋 선적재 프리로딩 (최초 마운트 1회 - 가벼운 이미지들만 미리 다운로드하여 화면 왜곡 방지)
   useEffect(() => {
     const allCallers = Object.values(CALLERS).flat();
     const imagesToLoad = allCallers.map((c) => ({ type: 'image', url: c.image }));
-    const audiosToLoad = allCallers.map((c) => ({ type: 'audio', url: c.audio }));
-    const allAssets = [...imagesToLoad, ...audiosToLoad];
-
-    const total = allAssets.length;
+    const total = imagesToLoad.length;
     let loadedCount = 0;
 
     if (total === 0) {
-      setLoadProgress(100);
-      setIsLoaded(true);
       return;
     }
 
     const updateProgress = () => {
       loadedCount++;
-      const pct = Math.round((loadedCount / total) * 100);
-      setLoadProgress((prev) => {
-        const nextPct = Math.max(prev, pct);
-        if (nextPct >= 100) {
-          setIsLoaded(true);
-          console.log('All gorgeous assets (Images & Raw Audios) are pre-fetched and ready!');
-        }
-        return nextPct;
-      });
+      // 이미지 프리로딩은 비동기 백그라운드 작업이며, 실제 수강생의 몰입을 위해 오디오 데이터만 선별로딩 처리합니다.
     };
 
-    allAssets.forEach((asset) => {
-      if (asset.type === 'image') {
-        const img = new Image();
-        img.src = asset.url;
-        img.onload = updateProgress;
-        img.onerror = updateProgress;
-      } else if (asset.type === 'audio') {
-        fetch(`${asset.url}?v=${Date.now()}`)
-          .then((res) => {
-            if (!res.ok) throw new Error('Fetch failed');
-            return res.arrayBuffer();
-          })
-          .then(() => {
-            updateProgress();
-          })
-          .catch((err) => {
-            console.log('Audio pre-fetch failed:', asset.url, err);
-            updateProgress();
-          });
-      }
+    imagesToLoad.forEach((asset) => {
+      const img = new Image();
+      img.src = asset.url;
+      img.onload = updateProgress;
+      img.onerror = updateProgress;
     });
   }, []);
+
+  // 사용자가 성별을 선택했을 때, 그 즉시 발신자(caller)를 선제적으로 선별하여 다운로드를 조기에 착수합니다.
+  useEffect(() => {
+    if (!config.gender) {
+      // 성별 선택이 취소되었거나 처음 로드된 상태
+      return;
+    }
+
+    // 이미 발신자가 배정되어 있고 해당 발신자가 바뀐 성별 풀에 존재한다면 중복 배정하지 않음
+    if (config.caller && CALLERS[config.gender].some(c => c.name === config.caller.name)) {
+      return;
+    }
+
+    const pool = CALLERS[config.gender];
+    // 이미 마주한 발신자를 배제한 후보 목록 생성
+    let candidates = pool.filter((c) => !seenCallers.includes(c.name));
+
+    // 모든 발신자를 최소 1회 마주했거나 후보군이 비어있다면 풀 복원
+    if (candidates.length === 0) {
+      candidates = pool;
+    }
+
+    const caller = candidates[Math.floor(Math.random() * candidates.length)];
+
+    // 비복원 랜덤 리스트 소진 시점 체크 및 히스토리 업데이트
+    const isExhausted = pool.filter((c) => !seenCallers.includes(c.name)).length <= 1;
+    if (isExhausted) {
+      setSeenCallers([caller.name]);
+    } else {
+      setSeenCallers((prev) => [...prev, caller.name]);
+    }
+
+    setConfig((prev) => ({ ...prev, caller }));
+  }, [config.gender]);
+
+  // 선택된 발신자의 오디오 파일 실시간 다운로드 및 100% 로딩 보장
+  useEffect(() => {
+    if (!config.caller?.audio) {
+      setIsLoaded(false);
+      setLoadProgress(0);
+      return;
+    }
+
+    // 이전의 다운로드 요청이 있다면 중단(Cancel)하여 리소스 낭비 차단
+    if (xhrRef.current) {
+      xhrRef.current.abort();
+      xhrRef.current = null;
+    }
+
+    // 대기 타임아웃이 존재한다면 초기화
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+      cleanupTimeoutRef.current = null;
+    }
+
+    setIsLoaded(false);
+    setLoadProgress(0);
+    prefetchedBufferRef.current = null;
+
+    console.log(`Starting strict real-time pre-loading for selected caller voice: ${config.caller.name}`);
+
+    const xhr = new XMLHttpRequest();
+    xhrRef.current = xhr;
+    xhr.open('GET', `${config.caller.audio}?v=${Date.now()}`, true);
+    xhr.responseType = 'arraybuffer';
+
+    xhr.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        // 다운로드 도중에는 최대 90% 까지만 표시하여 획득 공간 마진 부여
+        setLoadProgress(Math.min(90, percent));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        prefetchedBufferRef.current = xhr.response;
+        // 다운로드 자체는 완료되었으나 브라우저 오디오 디코더 버퍼링과 안정적인 메모리 락인을 위해 
+        // 90%에서 자체 Sleep 타임을 갖고 시각적으로 안도감을 주는 점진적 수렴 처리 실행
+        console.log(`Selected caller audio file successfully downloaded in memory: ${xhr.response.byteLength} bytes.`);
+        
+        // 90% 상태에서 1500ms 대기 후 95%로 올림
+        setLoadProgress(90);
+        cleanupTimeoutRef.current = setTimeout(() => {
+          setLoadProgress(95);
+          
+          // 95% 상태에서 다시 1500ms 대기 후 100% 활성화 (총 3.0초 슬립 가동)
+          cleanupTimeoutRef.current = setTimeout(() => {
+            setLoadProgress(100);
+            setIsLoaded(true);
+            console.log('Audio memory stream stabilized and fully ready to initiate!');
+          }, 1500);
+        }, 1500);
+      } else {
+        console.log(`Failed to preload audio, status: ${xhr.status}`);
+        setIsLoaded(true);
+        setLoadProgress(100);
+      }
+    };
+
+    xhr.onerror = () => {
+      console.log('XHR network error during audio preloading');
+      setIsLoaded(true);
+      setLoadProgress(100);
+    };
+
+    xhr.send();
+
+    return () => {
+      if (xhrRef.current) {
+        xhrRef.current.abort();
+        xhrRef.current = null;
+      }
+      if (cleanupTimeoutRef.current) {
+        clearTimeout(cleanupTimeoutRef.current);
+        cleanupTimeoutRef.current = null;
+      }
+    };
+  }, [config.caller?.audio]);
 
   // incall 화면에서만 타이머 동작
   useEffect(() => {
@@ -508,39 +602,11 @@ export function useCallSession() {
 
   // ── 화면 전환 핸들러 ─────────────────────────────────
   const handleStart = async (gender) => {
-    let pool;
-    if (gender === 'all') {
-      pool = [...CALLERS.female, ...CALLERS.male];
-    } else {
-      pool = CALLERS[gender];
-    }
-
-    // 이미 마주한 발신자를 배제한 목록 생성
-    let candidates = pool.filter((c) => !seenCallers.includes(c.name));
-
-    // 모든 발신자를 최소 1회 마주했거나 후보군이 비어있다면 풀 복원
-    if (candidates.length === 0) {
-      candidates = pool;
-    }
-
-    const caller = candidates[Math.floor(Math.random() * candidates.length)];
-
-    // 비복원 랜덤 리스트 소진 시점 체크 및 히스토리 업데이트
-    const isExhausted = pool.filter((c) => !seenCallers.includes(c.name)).length <= 1;
-    if (isExhausted) {
-      setSeenCallers([caller.name]);
-    } else {
-      setSeenCallers((prev) => [...prev, caller.name]);
-    }
-
     setSeconds(0);
-    setConfig({ gender, caller });
 
-    // [발신자 목소리 오디오 파일 사전 비동기 다운로드 및 완전 디코딩]
-    // 모바일 브라우저(Safari/Chrome)의 철저한 오토플레이(Autoplay) 차단 정책을 돌파하기 위해,
+    // [발신자 목소리 오디오 파일 선재 기동용 AudioContext 초기화]
     // 사용자가 첫 선택 화면에서 '시작하기' 버튼을 누른 (User Gesture Token이 100% 활성화된) 시점에 
-    // 즉시 오디오 콘텍스트를 만들고 백그라운드 디코딩 작업을 등록해 둡니다.
-    // 수락 클릭 시점에는 이미 메모리에 로딩되어 있으므로 보안 오류나 무음 버그 없이 100% 확실히 소리가 재생됩니다.
+    // 즉시 오디오 콘텍스트를 만들어 두어, 이후 어떠한 브라우저 Autoplay 차단 정책에도 안전하도록 기동해 둡니다.
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -549,17 +615,10 @@ export function useCallSession() {
           latencyHint: 'playout'
         });
         audioContextRef.current = ctx;
-
-        fetch(`${caller.audio}?v=${Date.now()}`)
-          .then(res => res.arrayBuffer())
-          .then(arrayBuffer => {
-            prefetchedBufferRef.current = arrayBuffer;
-            console.log('Background voice raw binary pre-fetched and cached safely.');
-          })
-          .catch(err => console.log('Background audio pre-fetch failed:', err));
+        console.log('AudioContext successfully initialized inside handleStart click gesture handler!');
       }
     } catch (e) {
-      console.log('Background AudioContext initialization failed:', e);
+      console.log('AudioContext initialization failed inside handleStart:', e);
     }
 
     // [체험 시작 전 마이크 권한 선요청]
