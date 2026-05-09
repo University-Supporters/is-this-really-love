@@ -96,6 +96,7 @@ export function useCallSession() {
   const preloadedAudiosRef = useRef({}); // 프리로딩 단계를 거쳐 다운로드 완료된 모든 오디오 파일들의 ArrayBuffer 영구 보관소
   const xhrRef = useRef(null); // 활성화된 발신자 음성 파일 다운로드 XMLHttpRequest 참조
   const cleanupTimeoutRef = useRef(null); // 안정성 확보용 지연 대기 타임아웃 참조
+  const webRTCPcRefs = useRef({ pc1: null, pc2: null, streamAudio: null });
 
   // 이미지 에셋 선적재 프리로딩 (최초 마운트 1회 - 가벼운 이미지들만 미리 다운로드하여 화면 왜곡 방지)
   useEffect(() => {
@@ -242,8 +243,146 @@ export function useCallSession() {
     }
   }, [screen]);
 
+  // 화면 활성화(Visibility) 전환 시 AudioContext 자동 복구 가드독
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && screen === 'incall') {
+        console.log('In-call screen visible again, checking AudioContext status...');
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume()
+            .then(() => console.log('AudioContext successfully resumed on visibility visible'))
+            .catch(err => console.log('Failed to resume AudioContext on visibility visible:', err));
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [screen]);
+
+  const cleanupWebRTC = () => {
+    if (webRTCPcRefs.current) {
+      const { pc1, pc2, streamAudio } = webRTCPcRefs.current;
+      if (pc1) {
+        try { pc1.close(); } catch (e) {}
+      }
+      if (pc2) {
+        try { pc2.close(); } catch (e) {}
+      }
+      if (streamAudio) {
+        try {
+          streamAudio.pause();
+          streamAudio.srcObject = null;
+        } catch (e) {}
+      }
+      webRTCPcRefs.current = { pc1: null, pc2: null, streamAudio: null };
+    }
+  };
+
+  const preferHighQualityOpus = (sdp) => {
+    // SDP에서 Opus 설정을 찾아 오디오 처리 비활성화 파라미터를 강제 주입합니다.
+    // stereo=1: 스테레오 전송
+    // sprop-stereo=1: 수신 스테레오 활성화
+    // maxaveragebitrate=510000: 초고해상도 오디오 대역폭 할당
+    // useinbandfec=1: 전송 패킷 보정 활성화
+    return sdp.replace(
+      /a=fmtp:(\d+) (.*)/g,
+      (match, pt, params) => {
+        if (params.indexOf('opus') !== -1 || match.toLowerCase().indexOf('opus') !== -1) {
+          return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=510000;useinbandfec=1;minptime=10;ptime=10`;
+        }
+        return match;
+      }
+    );
+  };
+
+  const playViaWebRTC = async (sourceStream) => {
+    try {
+      // 1. 기존 WebRTC 피어 연결 정리
+      cleanupWebRTC();
+
+      // 2. 오디오 트랙의 오디오 처리(에코 캔슬레이션, 노이즈 억제, AGC)를 끈다!
+      // 이렇게 하면 WebRTC 오디오 압축 및 감쇠 필터가 완전히 비활성화되어, 풍부하고 웅장한 원음 볼륨 그대로 전송됩니다.
+      const audioTrack = sourceStream.getAudioTracks()[0];
+      if (audioTrack) {
+        try {
+          await audioTrack.applyConstraints({
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          });
+          console.log('Successfully disabled WebRTC audio processing constraints on the voice track!');
+        } catch (err) {
+          console.log('Failed to apply constraints to voice track:', err);
+        }
+      }
+
+      // 3. RTCPeerConnection 생성
+      const pc1 = new RTCPeerConnection();
+      const pc2 = new RTCPeerConnection();
+
+      webRTCPcRefs.current.pc1 = pc1;
+      webRTCPcRefs.current.pc2 = pc2;
+
+      // ICE 후보자 교환 설정
+      pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(() => {});
+      pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(() => {});
+
+      // 수신 피어(pc2)에서 트랙을 받았을 때 처리
+      pc2.ontrack = e => {
+        if (!webRTCPcRefs.current.streamAudio) {
+          console.log('WebRTC track received! Playing strictly via earpiece...');
+          const streamAudio = new Audio();
+          streamAudio.muted = false;
+          streamAudio.autoplay = true;
+          streamAudio.setAttribute('playsinline', 'true');
+          streamAudio.srcObject = e.streams[0];
+          
+          // 볼륨을 100%로 설정
+          streamAudio.volume = 1.0;
+
+          streamAudio.play()
+            .then(() => console.log('WebRTC audio playing successfully in earpiece channel!'))
+            .catch(err => console.log('WebRTC audio play failed:', err));
+            
+          webRTCPcRefs.current.streamAudio = streamAudio;
+          androidStreamAudioRef.current = streamAudio;
+        }
+      };
+
+      // 송신 피어(pc1)에 원본 수화기용 소스 스트림 주입
+      sourceStream.getTracks().forEach(track => pc1.addTrack(track, sourceStream));
+
+      // 오퍼 및 앤서 교환 (Local Loopback)
+      const offer = await pc1.createOffer();
+      const highQualityOffer = { type: 'offer', sdp: preferHighQualityOpus(offer.sdp) };
+      await pc1.setLocalDescription(highQualityOffer);
+      await pc2.setRemoteDescription(highQualityOffer);
+
+      const answer = await pc2.createAnswer();
+      const highQualityAnswer = { type: 'answer', sdp: preferHighQualityOpus(answer.sdp) };
+      await pc2.setLocalDescription(highQualityAnswer);
+      await pc1.setRemoteDescription(highQualityAnswer);
+
+      console.log('WebRTC local loopback successfully established!');
+    } catch (e) {
+      console.log('Failed to setup WebRTC loopback, falling back to basic audio element:', e);
+      // 실패 시 폴백
+      const streamAudio = new Audio();
+      streamAudio.muted = false;
+      streamAudio.autoplay = true;
+      streamAudio.setAttribute('playsinline', 'true');
+      streamAudio.srcObject = sourceStream;
+      streamAudio.play().catch(err => console.log(err));
+      androidStreamAudioRef.current = streamAudio;
+    }
+  };
+
   // ── 오디오 ──────────────────────────────────────────
   const stopAudio = () => {
+    cleanupWebRTC();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -336,10 +475,11 @@ export function useCallSession() {
       }
 
       if (speakerOn) {
-        // 스피커폰 켜짐: 기본 오디오 출력지(Loudspeaker)로 직접 연결
+        // 스피커폰 켜짐: WebRTC 해제 후 기본 오디오 출력지(Loudspeaker)로 직접 연결
+        cleanupWebRTC();
         masterGain.connect(ctx.destination);
       } else {
-        // 스피커폰 꺼짐(수화기): 모바일(iOS 및 안드로이드) 수화기 강제 라우팅
+        // 스피커폰 꺼짐(수화기): 모바일(iOS 및 안드로이드) 수화기 강제 WebRTC 루프백 라우팅
         const dest = ctx.createMediaStreamDestination();
         if (hpFilter && lpFilter) {
           masterGain.connect(hpFilter);
@@ -349,13 +489,7 @@ export function useCallSession() {
           masterGain.connect(dest);
         }
 
-        const streamAudio = new Audio();
-        streamAudio.muted = false;
-        streamAudio.autoplay = true;
-        streamAudio.setAttribute('playsinline', 'true');
-        streamAudio.srcObject = dest.stream;
-        streamAudio.play().catch((e) => console.log('Mobile stream audio play failed:', e));
-        androidStreamAudioRef.current = streamAudio;
+        playViaWebRTC(dest.stream);
       }
     } catch (e) {
       console.log('Error updating mobile audio routing:', e);
@@ -484,9 +618,9 @@ export function useCallSession() {
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
-      // 3. 디폴트 볼륨 70% 설정 (마스터 게인 노드)
+      // 3. 디폴트 볼륨 설정 (마스터 게인 노드 - 수화기 출력 볼륨 보정 및 증폭)
       const masterGain = ctx.createGain();
-      masterGain.gain.value = 0.7;
+      masterGain.gain.value = 1.4;
       source.connect(masterGain);
       
       // 라우팅 스위칭(updateMobileAudioRouting)의 기점이 될 노드 지정
@@ -521,19 +655,13 @@ export function useCallSession() {
 
       // 5. 라우팅 연결
       if (isMobile && !isSpeaker) {
-        // 모바일(iOS 및 안드로이드) 수화기 강제 라우팅
+        // 모바일(iOS 및 안드로이드) 수화기 강제 WebRTC 루프백 라우팅
         const dest = ctx.createMediaStreamDestination();
         masterGain.connect(hpFilter);
         hpFilter.connect(lpFilter);
         lpFilter.connect(dest);
 
-        const streamAudio = new Audio();
-        streamAudio.muted = false;
-        streamAudio.autoplay = true;
-        streamAudio.setAttribute('playsinline', 'true');
-        streamAudio.srcObject = dest.stream;
-        streamAudio.play().catch(e => console.log('Mobile stream play error:', e));
-        androidStreamAudioRef.current = streamAudio;
+        playViaWebRTC(dest.stream);
       } else {
         if (isSpeaker) {
           masterGain.connect(ctx.destination);
@@ -555,7 +683,7 @@ export function useCallSession() {
       console.log('Web Audio Buffer play failed, falling back to basic Audio:', err);
       // 구형 기기를 위한 원시 HTML5 오디오 폴백
       const audio = new Audio(`${src}?v=${Date.now()}`);
-      audio.volume = 0.7;
+      audio.volume = 1.0;
       audio.addEventListener('ended', () => handleHangUp(true));
       audioRef.current = audio;
       audio.play().catch(e => console.log('Fallback play failed:', e));

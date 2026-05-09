@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { IconPhone, IconUser } from '../icons';
 
 /** 음파 시각화 바 (통화 중 애니메이션) */
@@ -12,8 +13,84 @@ const WaveBar = ({ index }) => (
  * InCallScreen – 통화 중 화면
  * - 실제 휴대전화 수화기(Telephone filter) 및 스피커폰 컨트롤 지원
  * - iOS/Android 스타일의 미려하고 고급스러운 다이얼 유틸리티 패널 탑재
+ * - Screen Wake Lock API를 활용해 화면 꺼짐으로 인한 오디오 차단 사전 예방
+ * - DeviceOrientation API 가상 근접센서(Ear Mode)로 볼터치로 인한 스피커폰 오작동 원천 차단
  */
 export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeaker, onToggleSpeaker }) {
+  const [isEarMode, setIsEarMode] = useState(false);
+  const wakeLockRef = useRef(null);
+
+  // 1. Screen Wake Lock API 적용 (화면이 꺼지면서 오디오 컨텍스트가 정지되는 문제 근본 해결)
+  useEffect(() => {
+    let active = true;
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+          console.log('Screen Wake Lock acquired successfully');
+        }
+      } catch (err) {
+        console.warn('Failed to acquire Screen Wake Lock:', err);
+      }
+    }
+
+    requestWakeLock();
+
+    // 화면 포커스가 다시 들어올 때 복구할 수 있도록 이벤트 등록
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && active) {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().then(() => {
+          wakeLockRef.current = null;
+          console.log('Screen Wake Lock released');
+        }).catch(err => {
+          console.warn('Failed to release Screen Wake Lock:', err);
+        });
+      }
+    };
+  }, []);
+
+  // 2. 가상 근접 센서 (Device Orientation Event) – 폰을 귀에 가까이 대었을 때 블랙오버레이 처리로 볼터치 완전 방지
+  useEffect(() => {
+    // 스피커폰 모드일 때는 Ear Mode(가상 근접 센서)를 작동하지 않음
+    if (isSpeaker) {
+      setIsEarMode(false);
+      return;
+    }
+
+    const handleOrientation = (event) => {
+      const { beta, gamma } = event;
+      if (beta === null || gamma === null) return;
+
+      // beta: 앞뒤 기울기 (-180 ~ 180), gamma: 좌우 기울기 (-90 ~ 90)
+      // 사용자가 폰을 수직으로 들고 귀에 대었을 때:
+      // 보통 beta는 70도 ~ 110도 사이로 서있게 됨.
+      // gamma는 얼굴 측면에 밀착하며 약 -35도 ~ 35도 사이를 이룸.
+      const isVertical = Math.abs(beta) > 70 && Math.abs(beta) < 110;
+      const isCloseToFace = Math.abs(gamma) < 35;
+
+      if (isVertical && isCloseToFace) {
+        setIsEarMode(true);
+      } else {
+        setIsEarMode(false);
+      }
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation);
+    };
+  }, [isSpeaker]);
   const buttons = [
     {
       id: 'mute',
@@ -79,67 +156,80 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
   ];
 
   return (
-    <div className="relative flex flex-col items-center justify-center h-full px-6 py-4 animate-fade-in bg-[#0f172a]">
-      <div className="w-full h-full max-h-[580px] flex flex-col items-center justify-between">
-        {/* 발신자 정보 */}
-        <div className="text-center z-10 flex flex-col items-center mt-2">
-          <div className="w-20 h-20 rounded-full bg-slate-800 mx-auto mb-3 border-4 border-slate-700 overflow-hidden shadow-2xl">
-            {caller?.image
-              ? <img src={caller.image} alt="" className="w-full h-full object-cover" />
-              : <IconUser />
-            }
+    <>
+      {/* 귀에 밀착하여 통화 중일 때 (Ear Mode) 블랙스크린 처리 및 터치 완전 차단 */}
+      {isEarMode && (
+        <div 
+          className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center pointer-events-auto touch-none select-none"
+          style={{ cursor: 'none' }}
+        >
+          {/* 눈부심 방지 및 오작동 잠금 가이드 */}
+          <span className="text-zinc-800 text-[10px] tracking-widest font-mono">EAR MODE ACTIVE</span>
+        </div>
+      )}
+
+      <div className="relative flex flex-col items-center justify-center h-full px-6 py-4 animate-fade-in bg-[#0f172a]">
+        <div className="w-full h-full max-h-[580px] flex flex-col items-center justify-between">
+          {/* 발신자 정보 */}
+          <div className="text-center z-10 flex flex-col items-center mt-2">
+            <div className="w-20 h-20 rounded-full bg-slate-800 mx-auto mb-3 border-4 border-slate-700 overflow-hidden shadow-2xl">
+              {caller?.image
+                ? <img src={caller.image} alt="" className="w-full h-full object-cover" />
+                : <IconUser />
+              }
+            </div>
+            <h2 className="text-2xl font-bold mb-1">{caller?.name}</h2>
+            <p className="text-indigo-400 font-mono text-lg font-bold tabular-nums">{formattedTime}</p>
           </div>
-          <h2 className="text-2xl font-bold mb-1">{caller?.name}</h2>
-          <p className="text-indigo-400 font-mono text-lg font-bold tabular-nums">{formattedTime}</p>
-        </div>
 
-        {/* 음파 애니메이션 */}
-        <div className="flex items-center justify-center gap-1.5 h-8 z-10 my-1">
-          {Array.from({ length: 9 }, (_, i) => (
-            <WaveBar key={i} index={i} />
-          ))}
-        </div>
+          {/* 음파 애니메이션 */}
+          <div className="flex items-center justify-center gap-1.5 h-8 z-10 my-1">
+            {Array.from({ length: 9 }, (_, i) => (
+              <WaveBar key={i} index={i} />
+            ))}
+          </div>
 
-        {/* 키패드 유틸리티 패널 */}
-        <div className="grid grid-cols-3 gap-x-6 gap-y-4 max-w-[280px] mx-auto z-10">
-          {buttons.map((btn) => {
-            const isBtnActive = btn.active;
-            return (
-              <div key={btn.id} className="flex flex-col items-center">
-                <button
-                  disabled={btn.disabled}
-                  onClick={btn.action}
-                  className={`
-                    w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300
-                    ${btn.disabled
-                      ? 'bg-slate-800/20 text-slate-600 cursor-not-allowed opacity-30'
-                      : isBtnActive
-                        ? 'bg-white text-slate-900 shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:bg-slate-100 active:scale-95'
-                        : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 active:scale-95'
-                    }
-                  `}
-                >
-                  {btn.icon}
-                </button>
-                <span className={`text-[11px] mt-1.5 font-medium tracking-wide ${btn.disabled ? 'text-slate-600/70' : isBtnActive ? 'text-white font-semibold' : 'text-slate-400'}`}>
-                  {btn.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+          {/* 키패드 유틸리티 패널 */}
+          <div className="grid grid-cols-3 gap-x-6 gap-y-4 max-w-[280px] mx-auto z-10">
+            {buttons.map((btn) => {
+              const isBtnActive = btn.active;
+              return (
+                <div key={btn.id} className="flex flex-col items-center">
+                  <button
+                    disabled={btn.disabled}
+                    onClick={btn.action}
+                    className={`
+                      w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300
+                      ${btn.disabled
+                        ? 'bg-slate-800/20 text-slate-600 cursor-not-allowed opacity-30'
+                        : isBtnActive
+                          ? 'bg-white text-slate-900 shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:bg-slate-100 active:scale-95'
+                          : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 active:scale-95'
+                      }
+                    `}
+                  >
+                    {btn.icon}
+                  </button>
+                  <span className={`text-[11px] mt-1.5 font-medium tracking-wide ${btn.disabled ? 'text-slate-600/70' : isBtnActive ? 'text-white font-semibold' : 'text-slate-400'}`}>
+                    {btn.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
 
-        {/* 통화 종료 버튼 */}
-        <div className="flex flex-col items-center w-full z-10">
-          <button
-            onClick={onHangUp}
-            className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-[0_0_40px_rgba(220,38,38,0.4)] hover:scale-110 active:scale-90 transition-transform"
-            aria-label="통화 종료"
-          >
-            <IconPhone rotate={135} />
-          </button>
+          {/* 통화 종료 버튼 */}
+          <div className="flex flex-col items-center w-full z-10">
+            <button
+              onClick={onHangUp}
+              className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-[0_0_40px_rgba(220,38,38,0.4)] hover:scale-110 active:scale-90 transition-transform"
+              aria-label="통화 종료"
+            >
+              <IconPhone rotate={135} />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
