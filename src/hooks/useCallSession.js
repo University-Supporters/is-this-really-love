@@ -84,62 +84,7 @@ export function useCallSession() {
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
 
-  // WebRTC Loopback for Android Earpiece Routing
-  const webRTCPcRefs = useRef({ pc1: null, pc2: null, streamAudio: null });
 
-  const clearWebRTC = () => {
-    if (webRTCPcRefs.current.pc1) {
-      try { webRTCPcRefs.current.pc1.close(); } catch(e) {}
-      webRTCPcRefs.current.pc1 = null;
-    }
-    if (webRTCPcRefs.current.pc2) {
-      try { webRTCPcRefs.current.pc2.close(); } catch(e) {}
-      webRTCPcRefs.current.pc2 = null;
-    }
-    if (webRTCPcRefs.current.streamAudio) {
-      try {
-        webRTCPcRefs.current.streamAudio.pause();
-        webRTCPcRefs.current.streamAudio.srcObject = null;
-      } catch(e) {}
-      webRTCPcRefs.current.streamAudio = null;
-    }
-  };
-
-  const playViaWebRTC = async (sourceStream) => {
-    clearWebRTC();
-
-    const pc1 = new window.RTCPeerConnection();
-    const pc2 = new window.RTCPeerConnection();
-    webRTCPcRefs.current.pc1 = pc1;
-    webRTCPcRefs.current.pc2 = pc2;
-
-    pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(() => {});
-    pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(() => {});
-
-    sourceStream.getTracks().forEach(track => pc1.addTrack(track, sourceStream));
-
-    pc2.ontrack = e => {
-      if (!webRTCPcRefs.current.streamAudio) {
-        const streamAudio = new window.Audio();
-        streamAudio.autoplay = true;
-        streamAudio.setAttribute('playsinline', 'true');
-        streamAudio.srcObject = e.streams[0];
-        streamAudio.play().catch(err => console.log('WebRTC audio play error:', err));
-        webRTCPcRefs.current.streamAudio = streamAudio;
-      }
-    };
-
-    try {
-      const offer = await pc1.createOffer();
-      await pc1.setLocalDescription(offer);
-      await pc2.setRemoteDescription(offer);
-      const answer = await pc2.createAnswer();
-      await pc2.setLocalDescription(answer);
-      await pc1.setRemoteDescription(answer);
-    } catch (e) {
-      console.log('WebRTC loopback setup error:', e);
-    }
-  };
 
   // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (기본 통화음은 수화기 모드로 시작되도록 설정합니다)
   const [isSpeaker, setIsSpeaker] = useState(false);
