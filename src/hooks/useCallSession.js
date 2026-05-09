@@ -98,6 +98,7 @@ export function useCallSession() {
   const xhrRef = useRef(null); // 활성화된 발신자 음성 파일 다운로드 XMLHttpRequest 참조
   const cleanupTimeoutRef = useRef(null); // 안정성 확보용 지연 대기 타임아웃 참조
   const webRTCPcRefs = useRef({ pc1: null, pc2: null, streamAudio: null });
+  const androidStreamAudioRef = useRef(null);
 
   // 이미지 에셋 선적재 프리로딩 (최초 마운트 1회 - 가벼운 이미지들만 미리 다운로드하여 화면 왜곡 방지)
   useEffect(() => {
@@ -388,7 +389,6 @@ export function useCallSession() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    clearWebRTC();
     // 마이크 스트림을 해제하여 디바이스 마이크 점유 표시등을 끄고 미디어 볼륨 채널로 완벽 환원
     if (micStreamRef.current) {
       try {
@@ -430,7 +430,7 @@ export function useCallSession() {
       if (hpFilter) hpFilter.disconnect();
       if (lpFilter) lpFilter.disconnect();
 
-      clearWebRTC();
+      cleanupWebRTC();
 
       if (speakerOn) {
         // 스피커폰 켜짐: 소스에서 곧바로 오디오 출력 (생생한 원음 출력)
@@ -586,7 +586,7 @@ export function useCallSession() {
         if (!AudioContext) throw new Error('Web Audio API not supported');
         ctx = new AudioContext({
           sampleRate: 44100,
-          latencyHint: 'playout'
+          latencyHint: 'playback'
         });
         audioContextRef.current = ctx;
       }
@@ -786,7 +786,7 @@ export function useCallSession() {
       if (AudioContext) {
         const ctx = new AudioContext({
           sampleRate: 44100,
-          latencyHint: 'playout'
+          latencyHint: 'playback'
         });
         audioContextRef.current = ctx;
         console.log('AudioContext successfully initialized inside handleStart click gesture handler!');
