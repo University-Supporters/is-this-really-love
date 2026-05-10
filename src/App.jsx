@@ -15,6 +15,8 @@ const SCREENS = {
       onStart={session.handleStart}
       loadProgress={session.loadProgress}
       isLoaded={session.isLoaded}
+      isTestingSound={session.isTestingSound}
+      toggleTestSound={session.toggleTestSound}
     />
   ),
   incoming: ({ session }) => (
