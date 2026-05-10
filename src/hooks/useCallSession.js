@@ -108,14 +108,17 @@ export function useCallSession() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [showInAppGuide, setShowInAppGuide] = useState(false);
   const [showMicPermissionGuide, setShowMicPermissionGuide] = useState(false);
+  const [isTestingSound, setIsTestingSound] = useState(false);
 
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
+  const testAudioCtxRef = useRef(null);
+  const testOscRef = useRef([]);
 
 
 
-  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (기본 통화음은 수화기 모드로 시작되도록 설정합니다)
-  const [isSpeaker, setIsSpeaker] = useState(false);
+  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (일반 볼륨 모드로 고정합니다)
+  const [isSpeaker, setIsSpeaker] = useState(true);
   const [isMicActive, setIsMicActive] = useState(false);
   const audioContextRef = useRef(null);
   const sourceNodeRef = useRef(null);
@@ -705,90 +708,7 @@ export function useCallSession() {
   };
 
   const toggleSpeaker = async () => {
-    const next = !isSpeaker;
-    setIsSpeaker(next);
-    
-    const isMobile = isMobileDevice();
-
-    if (isMobile) {
-      if (next) {
-        // 스피커폰 켬 (수화기 -> 스피커)
-        console.log('Mobile Speakerphone ON: setting audio session to playback and stopping mic stream.');
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'playback';
-          } catch (e) {
-            console.log('navigator.audioSession type change error:', e);
-          }
-        }
-        updateAudioRouting(true);
-        if (micStreamRef.current) {
-          try {
-            micStreamRef.current.getTracks().forEach((track) => track.stop());
-          } catch (e) {
-            console.log('Error stopping mic tracks:', e);
-          }
-          micStreamRef.current = null;
-        }
-        setIsMicActive(false);
-      } else {
-        // 스피커폰 끔 (스피커 -> 수화기)
-        console.log('Mobile Speakerphone OFF: setting audio session to auto and requesting fresh mic stream.');
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'auto';
-          } catch (e) {
-            console.log('navigator.audioSession type change to auto error:', e);
-          }
-        }
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-              }
-            });
-            micStreamRef.current = stream;
-            setIsMicActive(true);
-            console.log('Fresh microphone stream re-acquired successfully for earpiece routing.');
-          } catch (err) {
-            console.log('Microphone access for earpiece routing failed:', err);
-            setIsMicActive(false);
-          }
-        }
-        if (navigator.audioSession) {
-          try {
-            navigator.audioSession.type = 'play-and-record';
-            console.log('Successfully configured navigator.audioSession to play-and-record after re-acquiring mic stream.');
-          } catch (e) {
-            console.log('navigator.audioSession type change to play-and-record error:', e);
-          }
-        }
-        if (audioContextRef.current) {
-          try {
-            if (audioContextRef.current.state === 'suspended') {
-              await audioContextRef.current.resume();
-              console.log('AudioContext resumed after switching to earpiece.');
-            }
-          } catch (e) {
-            console.log('Error resuming AudioContext:', e);
-          }
-        }
-        updateAudioRouting(false);
-      }
-    } else {
-      // 데스크톱: 기존 Web Audio API 필터 라우팅 바이패스 제어
-      updateAudioRouting(next);
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        try {
-          await audioContextRef.current.resume();
-        } catch (e) {
-          console.log('Error resuming AudioContext:', e);
-        }
-      }
-    }
+    console.log('Speakerphone is permanently active.');
   };
 
   const playAudio = async (src) => {
@@ -834,9 +754,10 @@ export function useCallSession() {
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
-      // 3. 디폴트 볼륨 설정 (마스터 게인 노드 - 수화기 출력 볼륨 보정 및 증폭)
+      // 3. 디폴트 볼륨 설정 (마스터 게인 노드 - 일반 볼륨 20%로 자동 설정)
       const masterGain = ctx.createGain();
-      masterGain.gain.value = 1.4;
+      masterGain.gain.setValueAtTime(0.2, ctx.currentTime);
+      masterGain.gain.value = 0.2;
       source.connect(masterGain);
       
       // 라우팅 스위칭(updateMobileAudioRouting)의 기점이 될 노드 지정
@@ -901,7 +822,7 @@ export function useCallSession() {
       console.log('Web Audio Buffer play failed, falling back to basic Audio:', err);
       // 구형 기기를 위한 원시 HTML5 오디오 폴백
       const audio = new Audio(`${src}?v=${Date.now()}`);
-      audio.volume = 1.0;
+      audio.volume = 0.2;
       audio.addEventListener('ended', () => handleHangUp(true));
       audioRef.current = audio;
       audio.play().catch(e => console.log('Fallback play failed:', e));
@@ -984,6 +905,7 @@ export function useCallSession() {
 
   // ── 화면 전환 핸들러 ─────────────────────────────────
   const handleStart = async (gender) => {
+    stopTestSound();
     setSeconds(0);
 
     // [발신자 목소리 오디오 파일 선재 기동용 AudioContext 초기화]
@@ -1219,6 +1141,105 @@ export function useCallSession() {
     setScreen('selection');
   };
 
+  const playTestSound = () => {
+    try {
+      stopTestSound();
+
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = new AudioContext();
+      testAudioCtxRef.current = ctx;
+      
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0.02, ctx.currentTime);
+      gainNode.connect(ctx.destination);
+      
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(450, ctx.currentTime);
+      
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(400, ctx.currentTime);
+      
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      
+      lfo.frequency.setValueAtTime(15, ctx.currentTime);
+      lfoGain.gain.setValueAtTime(0.4, ctx.currentTime);
+      
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc1.frequency);
+      lfoGain.connect(osc2.frequency);
+      
+      lfo.start();
+      
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      
+      osc1.start();
+      osc2.start();
+      
+      testOscRef.current = [osc1, osc2, lfo];
+      setIsTestingSound(true);
+      
+      let isRinging = true;
+      const interval = setInterval(() => {
+        if (!testAudioCtxRef.current || testAudioCtxRef.current.state === 'closed') {
+          clearInterval(interval);
+          return;
+        }
+        try {
+          if (isRinging) {
+            gainNode.gain.setValueAtTime(gainNode.gain.value, testAudioCtxRef.current.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, testAudioCtxRef.current.currentTime + 0.1);
+          } else {
+            gainNode.gain.setValueAtTime(gainNode.gain.value, testAudioCtxRef.current.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.02, testAudioCtxRef.current.currentTime + 0.1);
+          }
+          isRinging = !isRinging;
+        } catch (e) {
+          clearInterval(interval);
+        }
+      }, 800);
+      
+      testAudioCtxRef.current.intervalId = interval;
+      
+    } catch (e) {
+      console.error('Failed to play synthesized test sound:', e);
+    }
+  };
+
+  const stopTestSound = () => {
+    if (testAudioCtxRef.current) {
+      if (testAudioCtxRef.current.intervalId) {
+        clearInterval(testAudioCtxRef.current.intervalId);
+      }
+      try {
+        testOscRef.current.forEach(osc => {
+          try { osc.stop(); } catch(e) {}
+        });
+      } catch (e) {}
+      testOscRef.current = [];
+      
+      if (testAudioCtxRef.current.state !== 'closed') {
+        testAudioCtxRef.current.close().catch(() => {});
+      }
+      testAudioCtxRef.current = null;
+    }
+    setIsTestingSound(false);
+  };
+
+  const toggleTestSound = () => {
+    if (isTestingSound) {
+      stopTestSound();
+    } else {
+      playTestSound();
+    }
+  };
+
   // ── 유틸 ────────────────────────────────────────────
   const formatTime = (s) => {
     const mm = String(Math.floor(s / 60)).padStart(2, '0');
@@ -1404,5 +1425,7 @@ export function useCallSession() {
     showMicPermissionGuide,
     setShowMicPermissionGuide,
     retryMicPermission,
+    isTestingSound,
+    toggleTestSound,
   };
 }

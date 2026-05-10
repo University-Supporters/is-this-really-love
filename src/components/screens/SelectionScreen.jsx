@@ -1,7 +1,15 @@
 /**
  * SelectionScreen – 성별 선택 및 체험 시작 화면
  */
-export default function SelectionScreen({ config, setConfig, onStart, loadProgress = 0, isLoaded = false }) {
+export default function SelectionScreen({ 
+  config, 
+  setConfig, 
+  onStart, 
+  loadProgress = 0, 
+  isLoaded = false,
+  isTestingSound = false,
+  toggleTestSound
+}) {
   const genders = [
     { key: 'female', label: '여성' },
     { key: 'male',   label: '남성' },
@@ -47,21 +55,42 @@ export default function SelectionScreen({ config, setConfig, onStart, loadProgre
             </div>
           </div>
 
-          {/* 마이크 권한 안내 공지글 */}
-          <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-3 sm:p-4 text-xs sm:text-sm text-slate-300 leading-relaxed backdrop-blur-md shadow-inner">
-            <p className="font-semibold text-indigo-300 mb-1 flex items-center justify-center gap-1.5">
-              <span>📞</span> 리얼한 통화 체험을 위한 마이크 권한 안내
-            </p>
-            <p className="text-[11px] sm:text-xs text-slate-400 text-center leading-normal break-keep">
-              시작하기 클릭 후 마이크 권한 팝업이 뜨면<br />
-              <strong className="text-emerald-400 font-black">"이 사이트에 있는 동안 허용"</strong>을 반드시 선택해 주세요.
-            </p>
-            <p className="text-[10px] sm:text-[11px] text-red-400 font-bold text-center mt-1 sm:mt-2 break-keep">
-              ⚠️ "이번에만 허용"을 선택하거나 권한을 허용하지 않을 경우, 통화 연결 시 녹음본 소리가 들리지 않을 수 있습니다.
-            </p>
-            <p className="text-[9px] sm:text-[10px] text-slate-500 text-center mt-1 sm:mt-2">
-              ※ 실제 음성을 절대 녹음하거나 저장하지 않으며, 스마트폰의 수화기 구멍(귀가 닿는 곳)과 전화기 통화 음량 채널을 연동하기 위한 필수 권한입니다.
-            </p>
+          {/* 음량 조절 및 따르릉 테스트 카드 */}
+          <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-3.5 backdrop-blur-md">
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">🔊</span>
+              <div className="space-y-1">
+                <h4 className="text-xs font-extrabold text-slate-200 tracking-wide">원활한 체험을 위한 음량 조절</h4>
+                <p className="text-[11px] text-slate-400 leading-normal font-light">
+                  전화벨과 상대방 목소리가 잘 들릴 수 있도록 스마트폰 측면 버튼을 눌러 <strong className="text-indigo-400 font-extrabold">미디어 볼륨을 꼭 키워주세요</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="h-[1px] bg-white/5" />
+
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-400">볼륨 및 스피커 테스트</span>
+              <button
+                type="button"
+                onClick={toggleTestSound}
+                className={`
+                  px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-300 flex items-center gap-1.5 shadow-sm border
+                  ${isTestingSound 
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-pulse' 
+                    : 'bg-slate-800/80 text-slate-300 border-slate-700/50 hover:bg-slate-700'}
+                `}
+              >
+                {isTestingSound ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                    테스트 정지
+                  </>
+                ) : (
+                  '따르릉 소리 테스트'
+                )}
+              </button>
+            </div>
           </div>
 
           {/* 미려한 글래스모피즘 에셋 사전로딩 진행 바 */}
