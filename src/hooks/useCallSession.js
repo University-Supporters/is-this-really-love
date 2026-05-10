@@ -417,13 +417,18 @@ export function useCallSession() {
           // 미디어 스피커가 아닌 실제 수화기(Earpiece)로 강제 정렬합니다. 
           // 이를 통해 얼굴 밀착 시 근접센서로 인해 귀 쪽 스피커가 강제로 음소거(Mute)되는 브라우저 미디어 버그를 완전히 극복합니다.
           try {
-            if (webRTCPcRefs.current.rtcSourceNode) {
-              try { webRTCPcRefs.current.rtcSourceNode.disconnect(); } catch (err) {}
+            const ctx = audioContextRef.current;
+            if (ctx) {
+              if (webRTCPcRefs.current.rtcSourceNode) {
+                try { webRTCPcRefs.current.rtcSourceNode.disconnect(); } catch (err) {}
+              }
+              const rtcSource = ctx.createMediaStreamSource(e.streams[0]);
+              rtcSource.connect(ctx.destination);
+              webRTCPcRefs.current.rtcSourceNode = rtcSource;
+              console.log('WebRTC track connected back to AudioContext destination for premium earphone/earpiece routing!');
+            } else {
+              console.log('AudioContext is not initialized, skipping direct destination routing.');
             }
-            const rtcSource = ctx.createMediaStreamSource(e.streams[0]);
-            rtcSource.connect(ctx.destination);
-            webRTCPcRefs.current.rtcSourceNode = rtcSource;
-            console.log('WebRTC track connected back to AudioContext destination for premium earphone/earpiece routing!');
           } catch (err) {
             console.log('Failed to route WebRTC track via AudioContext destination:', err);
           }
