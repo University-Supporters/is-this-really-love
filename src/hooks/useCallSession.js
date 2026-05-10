@@ -302,6 +302,10 @@ export function useCallSession() {
           micFeedbackAudio.srcObject = null;
         } catch (e) {}
       }
+      if (webRTCPcRefs.current.rtcSourceNode) {
+        try { webRTCPcRefs.current.rtcSourceNode.disconnect(); } catch (e) {}
+        webRTCPcRefs.current.rtcSourceNode = null;
+      }
       // [보안 혁신] 수화기 및 마이크 피드백용 오디오 객체는 한번 동기식(유저 제스처)으로 생성되면 
       // 절대 DOM에서 제거하거나 null 처리하지 않고 영구 보존하여 다음 세션에서도 그대로 재활용합니다.
       // 이렇게 해야 사파리/크롬이 유저 터치 권한(Gesture Token)을 계속 인정해 주어 완벽하게 수화기로 소리를 출력합니다.
@@ -399,14 +403,30 @@ export function useCallSession() {
             webRTCPcRefs.current.streamAudio = streamAudio;
           }
           
-          console.log('Setting srcObject on streamAudio and playing...');
+          console.log('Setting srcObject on streamAudio and playing at background inaudible volume to lock background WebRTC session...');
           streamAudio.srcObject = e.streams[0];
-          streamAudio.volume = 1.0;
+          streamAudio.volume = 0.00001; // 백그라운드 세션 락 유지를 위해 아주 미세한 비가청 볼륨 재생
           streamAudio.play()
-            .then(() => console.log('WebRTC audio playing successfully in earpiece channel!'))
-            .catch(err => console.log('WebRTC audio play failed:', err));
+            .then(() => console.log('Background streamAudio inaudible session locked.'))
+            .catch(err => console.log('streamAudio play failed:', err));
             
           androidStreamAudioRef.current = streamAudio;
+
+          // [핵심] 실제 오디오 재생은 <audio> 엘리먼트가 아닌 Web Audio API(AudioContext.destination)를 통해 전면 송출합니다!
+          // iOS Safari 및 인앱 브라우저(카카오톡, 라인 등)는 마이크 활성화 시 AudioContext.destination의 소리를
+          // 미디어 스피커가 아닌 실제 수화기(Earpiece)로 강제 정렬합니다. 
+          // 이를 통해 얼굴 밀착 시 근접센서로 인해 귀 쪽 스피커가 강제로 음소거(Mute)되는 브라우저 미디어 버그를 완전히 극복합니다.
+          try {
+            if (webRTCPcRefs.current.rtcSourceNode) {
+              try { webRTCPcRefs.current.rtcSourceNode.disconnect(); } catch (err) {}
+            }
+            const rtcSource = ctx.createMediaStreamSource(e.streams[0]);
+            rtcSource.connect(ctx.destination);
+            webRTCPcRefs.current.rtcSourceNode = rtcSource;
+            console.log('WebRTC track connected back to AudioContext destination for premium earphone/earpiece routing!');
+          } catch (err) {
+            console.log('Failed to route WebRTC track via AudioContext destination:', err);
+          }
         }
       };
 
