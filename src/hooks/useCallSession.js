@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { CALLERS } from '../constants/callers';
 
-/** 모바일 기기 여부 감지 유틸리티 */
 const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+  const isSmallScreen = window.innerWidth <= 1024 || window.screen.width <= 1024;
+  
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi|mobi|CriOS|FxiOS|KAKAOTALK|Line/i.test(ua) || 
+         (isTouch && isSmallScreen) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 };
 
 const isIOSDevice = () => {
@@ -12,6 +17,27 @@ const isIOSDevice = () => {
 
 const isAndroidDevice = () => {
   return /Android/i.test(navigator.userAgent);
+};
+
+// [WebKit 하위 호환성 오디오 디코더 통합 락]
+// 특정 구형 iOS 단말 및 카카오톡, 라인 등의 인앱 웹뷰(WebView) 브라우저 엔진은
+// AudioContext.decodeAudioData 호출 시 Promise를 리턴하지 않고 오직 콜백(Callback)만 지원하는 규격 에러가 발생합니다.
+// 콜백과 프로미스를 완벽히 결합하여 어떠한 모바일 환경에서도 사운드가 뻑나거나 재생 실패로 빠져 폴백 스피커폰으로 강제 강등되는 현상을 차단합니다.
+const safeDecodeAudioData = (ctx, arrayBuffer) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const promise = ctx.decodeAudioData(arrayBuffer, resolve, (err) => {
+        console.log('Callback error in decodeAudioData, retrying with raw promise fallback...');
+        reject(err);
+      });
+      if (promise && typeof promise.then === 'function') {
+        promise.then(resolve).catch(reject);
+      }
+    } catch (e) {
+      // 동기 에러 대응
+      reject(e);
+    }
+  });
 };
 
 // Fisher-Yates 셔플 알고리즘을 사용해 배열을 완전 무작위로 섞어주는 헬퍼 함수
@@ -80,6 +106,8 @@ export function useCallSession() {
   const [seconds, setSeconds] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showInAppGuide, setShowInAppGuide] = useState(false);
+  const [showMicPermissionGuide, setShowMicPermissionGuide] = useState(false);
 
   const audioRef     = useRef(null);
   const vibrationRef = useRef(null);
@@ -88,6 +116,7 @@ export function useCallSession() {
 
   // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (기본 통화음은 수화기 모드로 시작되도록 설정합니다)
   const [isSpeaker, setIsSpeaker] = useState(false);
+  const [isMicActive, setIsMicActive] = useState(false);
   const audioContextRef = useRef(null);
   const sourceNodeRef = useRef(null);
   const hpFilterRef = useRef(null);
@@ -99,6 +128,9 @@ export function useCallSession() {
   const cleanupTimeoutRef = useRef(null); // 안정성 확보용 지연 대기 타임아웃 참조
   const webRTCPcRefs = useRef({ pc1: null, pc2: null, streamAudio: null, micFeedbackAudio: null });
   const androidStreamAudioRef = useRef(null);
+  const isInitialSetupRef = useRef(true);
+  const micSourceNodeRef = useRef(null);
+  const micSilentGainNodeRef = useRef(null);
 
   // 이미지 에셋 선적재 프리로딩 (최초 마운트 1회 - 가벼운 이미지들만 미리 다운로드하여 화면 왜곡 방지)
   useEffect(() => {
@@ -246,23 +278,8 @@ export function useCallSession() {
   }, [screen]);
 
   // 화면 활성화(Visibility) 전환 시 AudioContext 자동 복구 가드독
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && screen === 'incall') {
-        console.log('In-call screen visible again, checking AudioContext status...');
-        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-          audioContextRef.current.resume()
-            .then(() => console.log('AudioContext successfully resumed on visibility visible'))
-            .catch(err => console.log('Failed to resume AudioContext on visibility visible:', err));
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [screen]);
+  // [안내] 기기 화면 켜짐/꺼짐 시 일어나는 하드웨어 수화기 채널 리셋 버그를 완벽하게 차단하기 위해 
+  // 관련 훅 및 전처리 유틸리티(updateAudioRouting 등)가 선언된 최하단 영역(L1024 근처)으로 해당 로직을 확장하여 이전 마운트하였습니다.
 
   const cleanupWebRTC = () => {
     if (webRTCPcRefs.current) {
@@ -277,38 +294,51 @@ export function useCallSession() {
         try {
           streamAudio.pause();
           streamAudio.srcObject = null;
-          if (streamAudio.parentNode) {
-            streamAudio.parentNode.removeChild(streamAudio);
-          }
         } catch (e) {}
       }
       if (micFeedbackAudio) {
         try {
           micFeedbackAudio.pause();
           micFeedbackAudio.srcObject = null;
-          if (micFeedbackAudio.parentNode) {
-            micFeedbackAudio.parentNode.removeChild(micFeedbackAudio);
-          }
         } catch (e) {}
       }
-      webRTCPcRefs.current = { pc1: null, pc2: null, streamAudio: null, micFeedbackAudio: null };
+      // [보안 혁신] 수화기 및 마이크 피드백용 오디오 객체는 한번 동기식(유저 제스처)으로 생성되면 
+      // 절대 DOM에서 제거하거나 null 처리하지 않고 영구 보존하여 다음 세션에서도 그대로 재활용합니다.
+      // 이렇게 해야 사파리/크롬이 유저 터치 권한(Gesture Token)을 계속 인정해 주어 완벽하게 수화기로 소리를 출력합니다.
+      webRTCPcRefs.current.pc1 = null;
+      webRTCPcRefs.current.pc2 = null;
     }
   };
 
   const preferHighQualityOpus = (sdp) => {
-    // [하드웨어 수화기 라우팅의 핵심 치트키: 강제 모노(Mono) 다운믹싱]
-    // 모바일 기기는 스테레오(stereo=1) 스트림을 감지하면 입체 미디어 재생으로 판단하여 돌비 애트모스/스테레오 업믹싱을 적용하고,
-    // 결국 하단 일반 스피커와 수화기 양쪽 모두에서 소리가 웅장하게 새어나오게 만듭니다.
-    // 이를 차단하고 실제 전화(VoIP)처럼 동작시키려면 반드시 모노(stereo=0, sprop-stereo=0)로 강제 합의해야 합니다.
-    return sdp.replace(
-      /a=fmtp:(\d+) (.*)/g,
-      (match, pt, params) => {
-        if (params.indexOf('opus') !== -1 || match.toLowerCase().indexOf('opus') !== -1) {
-          return `a=fmtp:${pt} ${params};stereo=0;sprop-stereo=0;maxaveragebitrate=96000;useinbandfec=1;minptime=20;ptime=20`;
+    // 1채널 Mono 및 VoIP 최적화 파라미터를 안전하게 주입하는 정밀 SDP 모디파이어
+    // \r\n과 \n 두 종류의 모든 개행 문자를 완벽히 제거하여 분할 처리하고, 항상 \r\n으로 병합하여 브라우저의 SDP 구문 분석 오류를 원천 차단합니다.
+    if (!sdp) return sdp;
+    const lines = sdp.split(/\r?\n/);
+    const updatedLines = lines.map(line => {
+      if (line.startsWith('a=fmtp:')) {
+        const match = line.match(/^a=fmtp:(\d+)\s+(.*)$/);
+        if (match) {
+          const pt = match[1];
+          let paramsStr = match[2];
+          
+          if (paramsStr.includes('minptime') || paramsStr.includes('useinbandfec') || line.toLowerCase().includes('opus')) {
+            const params = paramsStr.split(';').map(p => p.trim()).filter(p => {
+              const key = p.split('=')[0].toLowerCase();
+              return key !== 'stereo' && key !== 'sprop-stereo';
+            });
+            
+            params.push('stereo=0');
+            params.push('sprop-stereo=0');
+            params.push('useinbandfec=1');
+            
+            return `a=fmtp:${pt} ${params.join(';')}`;
+          }
         }
-        return match;
       }
-    );
+      return line;
+    });
+    return updatedLines.join('\r\n');
   };
 
   const playViaWebRTC = async (sourceStream) => {
@@ -316,22 +346,7 @@ export function useCallSession() {
       // 1. 기존 WebRTC 피어 연결 정리
       cleanupWebRTC();
 
-      // [핵심 해결책 2] 오디오 트랙의 오디오 처리(AEC, NS, AGC)를 켠다!
-      // 에코 캔슬레이션(AEC)이 켜져 있어야 모바일 OS가 이를 실제 '양방향 음성 통화' 모드로 판단하여
-      // 스피커폰 하울링을 방지하기 위해 일반 외부 스피커를 완전히 음소거하고, 오직 상단 수화기(Earpiece)로만 단독 출력합니다.
-      const audioTrack = sourceStream.getAudioTracks()[0];
-      if (audioTrack) {
-        try {
-          await audioTrack.applyConstraints({
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          });
-          console.log('Successfully enabled WebRTC audio processing (AEC, NS, AGC) on the voice track to lock hardware earpiece routing!');
-        } catch (err) {
-          console.log('Failed to apply constraints to voice track:', err);
-        }
-      }
+
 
       // 3. RTCPeerConnection 생성
       const pc1 = new RTCPeerConnection();
@@ -340,67 +355,93 @@ export function useCallSession() {
       webRTCPcRefs.current.pc1 = pc1;
       webRTCPcRefs.current.pc2 = pc2;
 
-      // ICE 후보자 교환 설정
-      pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(() => {});
-      pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(() => {});
+      // ICE 후보자 저장용 큐 (setRemoteDescription 완료 후에만 addIceCandidate를 처리하여 에러 철저 방지)
+      const pc1Candidates = [];
+      const pc2Candidates = [];
 
+      pc1.onicecandidate = e => {
+        if (e.candidate) {
+          if (pc2.remoteDescription) {
+            pc2.addIceCandidate(e.candidate).catch(() => {});
+          } else {
+            pc1Candidates.push(e.candidate);
+          }
+        }
+      };
+
+      pc2.onicecandidate = e => {
+        if (e.candidate) {
+          if (pc1.remoteDescription) {
+            pc1.addIceCandidate(e.candidate).catch(() => {});
+          } else {
+            pc2Candidates.push(e.candidate);
+          }
+        }
+      };
       // 수신 피어(pc2)에서 트랙을 받았을 때 처리 (오직 발신자 보이스 녹음 스트림만 재생하여 에코 방지)
       pc2.ontrack = e => {
-        if (e.streams && e.streams[0] && e.streams[0].id === sourceStream.id) {
-          if (!webRTCPcRefs.current.streamAudio) {
-            console.log('WebRTC voice track received! Playing strictly via earpiece...');
-            const streamAudio = new Audio();
+        if (e.streams && e.streams[0]) {
+          let streamAudio = webRTCPcRefs.current.streamAudio;
+          if (!streamAudio) {
+            console.log('WebRTC voice track received! Creating streamAudio...');
+            streamAudio = document.createElement('audio');
             streamAudio.muted = false;
             streamAudio.autoplay = true;
             streamAudio.setAttribute('playsinline', 'true');
-            
-            // 수화기 최적화 라우팅을 위해 오디오 엘리먼트를 DOM에 보이지 않게 삽입합니다.
-            streamAudio.style.display = 'none';
+            streamAudio.setAttribute('webkit-playsinline', 'true');
+            streamAudio.style.position = 'absolute';
+            streamAudio.style.width = '1px';
+            streamAudio.style.height = '1px';
+            streamAudio.style.opacity = '0.01';
+            streamAudio.style.pointerEvents = 'none';
+            streamAudio.style.overflow = 'hidden';
             document.body.appendChild(streamAudio);
-            
-            streamAudio.srcObject = e.streams[0];
-            
-            // 볼륨을 100%로 설정
-            streamAudio.volume = 1.0;
-
-            streamAudio.play()
-              .then(() => console.log('WebRTC audio playing successfully in earpiece channel!'))
-              .catch(err => console.log('WebRTC audio play failed:', err));
-              
             webRTCPcRefs.current.streamAudio = streamAudio;
-            androidStreamAudioRef.current = streamAudio;
           }
+          
+          console.log('Setting srcObject on streamAudio and playing...');
+          streamAudio.srcObject = e.streams[0];
+          streamAudio.volume = 1.0;
+          streamAudio.play()
+            .then(() => console.log('WebRTC audio playing successfully in earpiece channel!'))
+            .catch(err => console.log('WebRTC audio play failed:', err));
+            
+          androidStreamAudioRef.current = streamAudio;
         }
       };
 
       // 송신 피어(pc1)에서 마이크 트랙을 수신했을 때 처리 (무음 재생으로 브라우저/OS 하드웨어 VoIP 음성 채널 상태 활성화 강제)
       pc1.ontrack = e => {
-        if (!webRTCPcRefs.current.micFeedbackAudio) {
-          console.log('WebRTC mic feedback track received on pc1! Playing in muted mode to force VoIP session...');
-          const feedbackAudio = new Audio();
-          feedbackAudio.muted = true; // 무음(로컬 에코 완벽 방지)
-          feedbackAudio.autoplay = true;
-          feedbackAudio.setAttribute('playsinline', 'true');
+        if (e.streams && e.streams[0]) {
+          let feedbackAudio = webRTCPcRefs.current.micFeedbackAudio;
+          if (!feedbackAudio) {
+            console.log('WebRTC mic feedback track received on pc1! Creating feedbackAudio...');
+            feedbackAudio = document.createElement('audio');
+            feedbackAudio.muted = false; // 수화기 전용 채널 유지를 위해 muted가 아닌 비가청 볼륨 설정
+            feedbackAudio.autoplay = true;
+            feedbackAudio.setAttribute('playsinline', 'true');
+            feedbackAudio.setAttribute('webkit-playsinline', 'true');
+            feedbackAudio.style.position = 'absolute';
+            feedbackAudio.style.width = '1px';
+            feedbackAudio.style.height = '1px';
+            feedbackAudio.style.opacity = '0.01';
+            feedbackAudio.style.pointerEvents = 'none';
+            feedbackAudio.style.overflow = 'hidden';
+            document.body.appendChild(feedbackAudio);
+            webRTCPcRefs.current.micFeedbackAudio = feedbackAudio;
+          }
           
-          feedbackAudio.style.display = 'none';
-          document.body.appendChild(feedbackAudio);
-          
+          console.log('Setting srcObject on feedbackAudio and playing with inaudible volume...');
           feedbackAudio.srcObject = e.streams[0];
+          feedbackAudio.volume = 0.00001; // 에코 방지 및 WebKit 트랙 정지 우회를 위해 극저 볼륨 설정
           feedbackAudio.play()
-            .then(() => console.log('Muted mic feedback playing successfully on pc1 to lock VoIP mode!'))
-            .catch(err => console.log('Muted mic feedback play failed:', err));
-            
-          webRTCPcRefs.current.micFeedbackAudio = feedbackAudio;
+            .then(() => console.log('Inaudible mic feedback playing successfully on pc1 to lock VoIP mode!'))
+            .catch(err => console.log('Inaudible mic feedback play failed:', err));
         }
       };
 
       // 송신 피어(pc1)에 원본 수화기용 소스 스트림 주입 (보이스 송출)
       sourceStream.getTracks().forEach(track => pc1.addTrack(track, sourceStream));
-
-      // pc1이 pc2로부터 마이크 트랙을 수신할 수 있도록 수신용 트랜시버 명시적 추가!
-      // 이렇게 해야 pc1의 Offer SDP에 두 번째 오디오 수신 채널(m=audio)이 정상 형성되어,
-      // pc2가 자신의 마이크 트랙을 이 채널로 바인딩하여 송출할 수 있습니다.
-      pc1.addTransceiver('audio', { direction: 'recvonly' });
 
       // [역방향 오라우팅 및 무한 락다운 세션 구축]
       // pc2(수신부)에 사용자의 실시간 마이크 트랙(혹은 무음 가상 스트림) 등록 (마이크 송출)
@@ -431,14 +472,18 @@ export function useCallSession() {
 
       // 오퍼 및 앤서 교환 (Local Loopback)
       const offer = await pc1.createOffer();
-      const highQualityOffer = { type: 'offer', sdp: preferHighQualityOpus(offer.sdp) };
-      await pc1.setLocalDescription(highQualityOffer);
-      await pc2.setRemoteDescription(highQualityOffer);
+      await pc1.setLocalDescription(offer);
+      
+      // pc2 원격 묘사 설정 후 대기 중인 pc1의 candidate들 적용
+      await pc2.setRemoteDescription(offer);
+      pc1Candidates.forEach(c => pc2.addIceCandidate(c).catch(() => {}));
 
       const answer = await pc2.createAnswer();
-      const highQualityAnswer = { type: 'answer', sdp: preferHighQualityOpus(answer.sdp) };
-      await pc2.setLocalDescription(highQualityAnswer);
-      await pc1.setRemoteDescription(highQualityAnswer);
+      await pc2.setLocalDescription(answer);
+      
+      // pc1 원격 묘사 설정 후 대기 중인 pc2의 candidate들 적용
+      await pc1.setRemoteDescription(answer);
+      pc2Candidates.forEach(c => pc1.addIceCandidate(c).catch(() => {}));
 
       console.log('WebRTC bidirectional local loopback successfully established!');
     } catch (e) {
@@ -454,9 +499,68 @@ export function useCallSession() {
     }
   };
 
+  const ensureMicLinkedToContext = () => {
+    if (!isMobileDevice()) return;
+    const ctx = audioContextRef.current;
+    if (!ctx || ctx.state === 'closed') return;
+    
+    // 기존 연결 해제 및 초기화
+    if (micSourceNodeRef.current) {
+      try {
+        micSourceNodeRef.current.disconnect();
+      } catch (e) {}
+      micSourceNodeRef.current = null;
+    }
+    if (micSilentGainNodeRef.current) {
+      try {
+        micSilentGainNodeRef.current.disconnect();
+      } catch (e) {}
+      micSilentGainNodeRef.current = null;
+    }
+
+    if (!micStreamRef.current) {
+      console.log('ensureMicLinkedToContext: No active mic stream to link. Activating mic permission guide...');
+      if (isMobileDevice() && !isSpeaker) {
+        setShowMicPermissionGuide(true);
+      }
+      return;
+    }
+
+    try {
+      console.log('ensureMicLinkedToContext: Linking micStream to AnalyserNode to force browser microphone activity and VoIP mode!');
+      const micSource = ctx.createMediaStreamSource(micStreamRef.current);
+      
+      // AnalyserNode 생성 (마이크 스트림의 지속적인 프로세싱을 보장하여 브라우저의 최적화 해제 및 VoIP 모드 강제 유지)
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      micSource.connect(analyser);
+      
+      // 극히 작은 인audible 볼륨으로 가상의 더미 미디어스트림 목적지(MediaStreamDestination)에 연결하여 풀링 활성화를 극대화합니다.
+      // 하드웨어 스피커(ctx.destination)에 절대 직접 연결하지 않음으로써, OS가 미디어 재생 중으로 판단하여 수화기 락을 해제하고 외부 스피커로 오버라이드하는 버그를 원천 차단합니다.
+      const dummyDest = ctx.createMediaStreamDestination();
+      const silentGain = ctx.createGain();
+      silentGain.gain.setValueAtTime(0.000001, ctx.currentTime);
+      analyser.connect(silentGain);
+      silentGain.connect(dummyDest);
+      
+      micSourceNodeRef.current = micSource;
+      micSilentGainNodeRef.current = silentGain;
+    } catch (e) {
+      console.log('Error in ensureMicLinkedToContext:', e);
+    }
+  };
+
   // ── 오디오 ──────────────────────────────────────────
   const stopAudio = () => {
     cleanupWebRTC();
+    if (micSourceNodeRef.current) {
+      try { micSourceNodeRef.current.disconnect(); } catch (e) {}
+      micSourceNodeRef.current = null;
+    }
+    if (micSilentGainNodeRef.current) {
+      try { micSilentGainNodeRef.current.disconnect(); } catch (e) {}
+      micSilentGainNodeRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -470,6 +574,7 @@ export function useCallSession() {
       }
       micStreamRef.current = null;
     }
+    setIsMicActive(false);
     // iOS Safari 오디오 세션 원복 (사용 후 원래 상태로 복귀)
     if (navigator.audioSession) {
       try {
@@ -514,6 +619,7 @@ export function useCallSession() {
         
         if (isMobileDevice()) {
           const dest = ctx.createMediaStreamDestination();
+          dest.channelCount = 1;
           lpFilter.connect(dest);
           playViaWebRTC(dest.stream);
         } else {
@@ -522,6 +628,8 @@ export function useCallSession() {
       } else {
         source.connect(ctx.destination);
       }
+
+      ensureMicLinkedToContext();
     } catch (e) {
       console.log('Error updating audio routing:', e);
     }
@@ -555,6 +663,7 @@ export function useCallSession() {
       } else {
         // 스피커폰 꺼짐(수화기): 모바일(iOS 및 안드로이드) 수화기 강제 WebRTC 루프백 라우팅
         const dest = ctx.createMediaStreamDestination();
+        dest.channelCount = 1;
         if (hpFilter && lpFilter) {
           masterGain.connect(hpFilter);
           hpFilter.connect(lpFilter);
@@ -596,6 +705,7 @@ export function useCallSession() {
           }
           micStreamRef.current = null;
         }
+        setIsMicActive(false);
       } else {
         // 스피커폰 끔 (스피커 -> 수화기)
         console.log('Mobile Speakerphone OFF: setting audio session to auto and requesting fresh mic stream.');
@@ -616,12 +726,14 @@ export function useCallSession() {
               }
             });
             micStreamRef.current = stream;
+            setIsMicActive(true);
             console.log('Fresh microphone stream re-acquired successfully for earpiece routing.');
           } catch (err) {
             console.log('Microphone access for earpiece routing failed:', err);
+            setIsMicActive(false);
           }
         }
-        if (navigator.audioSession && micStreamRef.current) {
+        if (navigator.audioSession) {
           try {
             navigator.audioSession.type = 'play-and-record';
             console.log('Successfully configured navigator.audioSession to play-and-record after re-acquiring mic stream.');
@@ -683,11 +795,11 @@ export function useCallSession() {
       } else if (prefetchedBufferRef.current) {
         // 프리패치된 ArrayBuffer 복사본을 생성해 가동 중인 컨텍스트에서 안전하게 디코딩 진행
         const bufferCopy = prefetchedBufferRef.current.slice(0);
-        audioBuffer = await ctx.decodeAudioData(bufferCopy);
+        audioBuffer = await safeDecodeAudioData(ctx, bufferCopy);
       } else {
         const response = await fetch(`${src}?v=${Date.now()}`);
         const arrayBuffer = await response.arrayBuffer();
-        audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        audioBuffer = await safeDecodeAudioData(ctx, arrayBuffer);
       }
 
       // 만약 다운로드/디코딩 도중 전화를 끊었다면 컨텍스트가 닫혔을 것이므로 재생 중단
@@ -736,6 +848,7 @@ export function useCallSession() {
       if (isMobile && !isSpeaker) {
         // 모바일(iOS 및 안드로이드) 수화기 강제 WebRTC 양방향 루프백 라우팅
         const dest = ctx.createMediaStreamDestination();
+        dest.channelCount = 1;
         masterGain.connect(hpFilter);
         hpFilter.connect(lpFilter);
         lpFilter.connect(dest);
@@ -747,20 +860,10 @@ export function useCallSession() {
         } else {
           lpFilter.connect(ctx.destination);
         }
-
-        // 모바일 브라우저의 마이크 유휴 비활성화 방지를 위한 무음 연결 보장
-        if (isMobile && micStreamRef.current) {
-          try {
-            const micSource = ctx.createMediaStreamSource(micStreamRef.current);
-            const silentGain = ctx.createGain();
-            silentGain.gain.setValueAtTime(0, ctx.currentTime);
-            micSource.connect(silentGain);
-            silentGain.connect(ctx.destination);
-          } catch (e) {
-            console.log('Error linking mic source to AudioContext:', e);
-          }
-        }
       }
+
+      // 모바일 오디오 하드웨어 VoIP 음성 모드 락을 위한 마이크 가상 활성화
+      ensureMicLinkedToContext();
 
       // 오디오 강제 재생 실행!
       source.start(0);
@@ -893,17 +996,25 @@ export function useCallSession() {
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            }
-          });
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              }
+            });
+          } catch (e) {
+            console.log('Advanced mic constraints failed inside handleStart, retrying with simple constraints...', e);
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          }
           micStreamRef.current = stream;
+          setIsMicActive(true);
           console.log('Microphone stream acquired and kept active to lock earpiece routing.');
         } catch (err) {
           console.log('Microphone pre-authorization denied or failed:', err);
+          setIsMicActive(false);
         }
       }
     }
@@ -916,60 +1027,128 @@ export function useCallSession() {
   const handleAccept = async () => {
     stopVibration();
     setScreen('incall');
+    isInitialSetupRef.current = true;
+    setTimeout(() => {
+      isInitialSetupRef.current = false;
+      console.log('Initial call setup window closed. Visibility guard is now active.');
+    }, 4000);
 
     // [중요: User Gesture Token 확보]
     // 모바일 브라우저(Safari, Chrome)는 click 이벤트 내에서 동기적으로 실행되는 명령에만 오디오 권한을 줍니다.
-    // 하단에 있는 await getUserMedia가 실행되면 이 동기적 제스처 토큰이 즉시 소멸해버립니다.
-    // 따라서 어떠한 비동기 작업(await)을 하기 전에 무조건 즉시 AudioContext를 깨워야 무음 버그가 사라집니다!
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume().catch(e => console.log('Context resume error:', e));
+    // 하단에 있는 비동기 작업(await getUserMedia 등)이 시작되는 즉시 유저 제스처 토큰이 소멸되어 버립니다.
+    // 따라서 어떠한 비동기 코드(await)를 만나기 전에, 동기 영역인 이 시점에서 즉시 AudioContext를 미리 생성하고 resume해야만 완벽히 가청권이 획득되고 무음/오라우팅 버그가 사라집니다!
+    let ctx = audioContextRef.current;
+    if (!ctx || ctx.state === 'closed') {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        ctx = new AudioContext({
+          sampleRate: 44100,
+          latencyHint: 'playback'
+        });
+        audioContextRef.current = ctx;
+      }
+    }
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(e => console.log('Context resume error inside handleAccept:', e));
     }
 
     const isMobile = isMobileDevice();
+    
+    // [중요: 수화기 및 마이크 피드백용 오디오 엘리먼트 동기적 사전 생성]
+    // 모바일 사파리/크롬은 비동기(await) 영역 외부인 터치 핸들러 동기적 영역에서 생성되어 DOM에 삽입된 오디오 엘리먼트만 
+    // 실제 전화 통화 수화기(Earpiece) 채널로 정상 라우팅을 허용합니다.
+    // 수락 버튼 클릭 직후 이 동기 영역에서 미리 엘리먼트를 만들어 두어 비동기 소멸 버그를 해결합니다.
     if (isMobile && !isSpeaker) {
-      console.log('Stopping old mic stream (if any) and acquiring a fresh stream with voice constraints in handleAccept.');
+      let streamAudio = webRTCPcRefs.current.streamAudio;
+      if (!streamAudio) {
+        streamAudio = document.createElement('audio');
+        streamAudio.muted = false;
+        streamAudio.autoplay = true;
+        streamAudio.setAttribute('playsinline', 'true');
+        streamAudio.setAttribute('webkit-playsinline', 'true');
+        streamAudio.style.position = 'absolute';
+        streamAudio.style.width = '1px';
+        streamAudio.style.height = '1px';
+        streamAudio.style.opacity = '0.01';
+        streamAudio.style.pointerEvents = 'none';
+        streamAudio.style.overflow = 'hidden';
+        document.body.appendChild(streamAudio);
+        webRTCPcRefs.current.streamAudio = streamAudio;
+        console.log('Synchronously pre-created streamAudio inside handleAccept click gesture.');
+      }
+
+      let feedbackAudio = webRTCPcRefs.current.micFeedbackAudio;
+      if (!feedbackAudio) {
+        feedbackAudio = document.createElement('audio');
+        feedbackAudio.muted = false; // 수화기 전용 채널 유지를 위해 muted가 아닌 비가청 볼륨 설정
+        feedbackAudio.autoplay = true;
+        feedbackAudio.setAttribute('playsinline', 'true');
+        feedbackAudio.setAttribute('webkit-playsinline', 'true');
+        feedbackAudio.style.position = 'absolute';
+        feedbackAudio.style.width = '1px';
+        feedbackAudio.style.height = '1px';
+        feedbackAudio.style.opacity = '0.01';
+        feedbackAudio.style.pointerEvents = 'none';
+        feedbackAudio.style.overflow = 'hidden';
+        document.body.appendChild(feedbackAudio);
+        webRTCPcRefs.current.micFeedbackAudio = feedbackAudio;
+        console.log('Synchronously pre-created micFeedbackAudio inside handleAccept click gesture.');
+      }
+    }
+    if (isMobile && !isSpeaker) {
       if (micStreamRef.current) {
-        try {
-          micStreamRef.current.getTracks().forEach((track) => track.stop());
-        } catch (e) {
-          console.log('Error stopping mic tracks in handleAccept:', e);
+        console.log('Reusing pre-acquired mic stream in handleAccept, locking play-and-record routing.');
+        setIsMicActive(true);
+        if (navigator.audioSession) {
+          try {
+            navigator.audioSession.type = 'play-and-record';
+          } catch (err) {
+            console.log('navigator.audioSession pre-locking failed:', err);
+          }
         }
-        micStreamRef.current = null;
-      }
-
-      // [WebKit 오디오 세션 넛지(Nudge) 트릭 적용]
-      // iOS Safari에서는 play-and-record를 먼저 적용하면 마이크가 오작동하거나 
-      // 스피커폰 채널로 고착되는 버그가 있습니다. 따라서 auto로 초기화 후 마이크를 구동한 뒤 play-and-record로 상향합니다.
-      if (navigator.audioSession) {
-        try {
-          navigator.audioSession.type = 'auto';
-        } catch (err) {
-          console.log('navigator.audioSession reset to auto failed:', err);
+      } else {
+        console.log('No active mic stream pre-acquired. Requesting fresh stream in handleAccept...');
+        
+        // [WebKit 오디오 세션 넛지(Nudge) 트릭 적용]
+        if (navigator.audioSession) {
+          try {
+            navigator.audioSession.type = 'auto';
+          } catch (err) {
+            console.log('navigator.audioSession reset to auto failed:', err);
+          }
         }
-      }
 
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            let stream;
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                }
+              });
+            } catch (e) {
+              console.log('Advanced mic constraints failed inside handleAccept, retrying with simple constraints...', e);
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             }
-          });
-          micStreamRef.current = stream;
-          console.log('Fresh microphone access obtained successfully inside handleAccept.');
-        } catch (err) {
-          console.log('Microphone access failed inside handleAccept:', err);
+            micStreamRef.current = stream;
+            setIsMicActive(true);
+            console.log('Fresh microphone access obtained successfully inside handleAccept.');
+          } catch (err) {
+            console.log('Microphone access failed inside handleAccept:', err);
+            setIsMicActive(false);
+          }
         }
-      }
 
-      if (navigator.audioSession && micStreamRef.current) {
-        try {
-          navigator.audioSession.type = 'play-and-record';
-          console.log('Successfully configured navigator.audioSession to play-and-record after getUserMedia.');
-        } catch (err) {
-          console.log('navigator.audioSession setting failed:', err);
+        if (navigator.audioSession && micStreamRef.current) {
+          try {
+            navigator.audioSession.type = 'play-and-record';
+            console.log('Successfully configured navigator.audioSession to play-and-record after getUserMedia.');
+          } catch (err) {
+            console.log('navigator.audioSession setting failed:', err);
+          }
         }
       }
     }
@@ -1022,6 +1201,163 @@ export function useCallSession() {
     return `${mm}:${ss}`;
   };
 
+  // [보안 및 하드웨어 회복 가드독]
+  // 사용자가 전화를 귀에 밀착하여 화면이 꺼졌다(hidden) 꺼졌다 켜졌을(visible) 때의 오디오 라우팅 이탈을 방지합니다.
+  // 특히 iOS Safari 및 최신 Android Chrome은 화면이 꺼진(background) 동안 마이크 세션이 무력화되거나 
+  // 기기 하드웨어가 통화용 라우팅을 리셋해버리는 버그가 빈발합니다.
+  // 화면이 다시 visible이 되는 순간 마이크 세션을 검사해 필요 시 재획득하고, WebRTC 루프백 라우팅을 완전 신선하게 재구축합니다.
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && screen === 'incall') {
+        console.log('In-call screen visible again! Activating VoIP hardware routing protection checklist...');
+        
+        // 1. AudioContext가 정지된 경우 강제 깨우기 (이것은 레이스 컨디션 방지 시간 중이라도 최우선적으로 실행되어야 무음 현상이 예방됩니다)
+        if (audioContextRef.current) {
+          try {
+            if (audioContextRef.current.state === 'suspended') {
+              await audioContextRef.current.resume();
+              console.log('AudioContext successfully resumed on visibility visible');
+            }
+          } catch (err) {
+            console.log('Failed to resume AudioContext:', err);
+          }
+        }
+
+        // 2. 초기 셋업 기간(4초) 동안에는 가드독의 WebRTC 라우팅 및 마이크 재조정을 유예하여 충돌을 차단합니다.
+        if (isInitialSetupRef.current) {
+          console.log('Skipping WebRTC routing and microphone recovery during initial call setup window.');
+          return;
+        }
+
+        // 2. 스피커폰이 꺼진 상태(수화기 전용 모드)에서만 WebRTC 루프백 및 마이크 정밀 재정비
+        if (!isSpeaker) {
+          let needFreshMic = false;
+          if (micStreamRef.current) {
+            const tracks = micStreamRef.current.getTracks();
+            if (tracks.length === 0 || tracks.some(t => t.readyState === 'ended' || !t.enabled)) {
+              needFreshMic = true;
+            }
+          } else {
+            needFreshMic = true;
+          }
+
+          if (needFreshMic) {
+            console.log('Microphone track was disabled, ended or missing on resume. Re-acquiring...');
+            if (micStreamRef.current) {
+              try {
+                micStreamRef.current.getTracks().forEach(t => t.stop());
+              } catch (e) {}
+              micStreamRef.current = null;
+            }
+
+            if (navigator.audioSession) {
+              try {
+                navigator.audioSession.type = 'auto';
+              } catch (e) {}
+            }
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              try {
+                let stream;
+                try {
+                  stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                      echoCancellation: true,
+                      noiseSuppression: true,
+                      autoGainControl: true,
+                    }
+                  });
+                } catch (e) {
+                  console.log('Advanced mic constraints failed on visibility change, retrying with simple constraints...', e);
+                  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
+                micStreamRef.current = stream;
+                setIsMicActive(true);
+                console.log('Fresh microphone re-acquired on visibility change!');
+              } catch (err) {
+                console.log('Failed to re-acquire microphone stream on visibility change:', err);
+                setIsMicActive(false);
+              }
+            }
+
+            if (navigator.audioSession && micStreamRef.current) {
+              try {
+                navigator.audioSession.type = 'play-and-record';
+              } catch (e) {}
+            }
+          }
+
+          // WebRTC 루프백 전면 재구축 실행 (이탈된 OS 스피커 라우팅을 다시 수화기로 원상 고정!)
+          console.log('Refreshing WebRTC loopback routing on visibility change...');
+          updateAudioRouting(false);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [screen, isSpeaker]);
+
+  // 인앱 브라우저 탈출 및 수화기 최적화 가이드 기동
+  useEffect(() => {
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    const isKakao = /KAKAOTALK/i.test(ua);
+    const isLine = /Line/i.test(ua);
+    const isOtherInApp = /FBAN|FBAV|Instagram|Twitter|Slack/i.test(ua);
+
+    if (isKakao || isLine || isOtherInApp) {
+      const url = window.location.href;
+      if (/Android/i.test(ua)) {
+        // 안드로이드: 크롬 외부 앱 열기 인텐트 스키마 실행
+        const cleanUrl = url.replace(/https?:\/\//, '');
+        window.location.href = `intent://${cleanUrl}#Intent;scheme=https;package=com.android.chrome;end`;
+      } else if (/iPhone|iPad|iPod/i.test(ua)) {
+        // iOS 카카오톡: 사파리로 외부 앱 열기 기기 스키마 실행
+        if (isKakao) {
+          window.location.href = `kakaotalk://web/openExternalApp?url=${encodeURIComponent(url)}`;
+        }
+        // 외부 앱 오픈 실패 및 기타 인앱브라우저 대응을 위해 사파리 안내 오버레이 띄우기
+        setShowInAppGuide(true);
+      }
+    }
+  }, []);
+
+  const retryMicPermission = async () => {
+    setShowMicPermissionGuide(false);
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          });
+        } catch (e) {
+          console.log('Advanced mic constraints failed on retry, retrying with simple constraints...', e);
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        micStreamRef.current = stream;
+        setIsMicActive(true);
+        console.log('Successfully obtained mic permission on retry!');
+        
+        // 마이크 획득 성공 시 즉시 오디오 라우팅 및 믹스 동기화 실행
+        ensureMicLinkedToContext();
+        if (screen === 'incall' && !isSpeaker) {
+          updateAudioRouting(false);
+        }
+      } catch (err) {
+        console.log('Failed to obtain mic permission on retry:', err);
+        setIsMicActive(false);
+        setShowMicPermissionGuide(true);
+      }
+    }
+  };
+
   return {
     screen,
     config,
@@ -1035,7 +1371,13 @@ export function useCallSession() {
     handleRestart,
     isSpeaker,
     toggleSpeaker,
+    isMicActive,
     loadProgress,
     isLoaded,
+    showInAppGuide,
+    setShowInAppGuide,
+    showMicPermissionGuide,
+    setShowMicPermissionGuide,
+    retryMicPermission,
   };
 }

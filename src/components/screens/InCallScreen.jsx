@@ -16,7 +16,7 @@ const WaveBar = ({ index }) => (
  * - Screen Wake Lock API를 활용해 화면 꺼짐으로 인한 오디오 차단 사전 예방
  * - DeviceOrientation API 가상 근접센서(Ear Mode)로 볼터치로 인한 스피커폰 오작동 원천 차단
  */
-export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeaker, onToggleSpeaker }) {
+export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeaker, onToggleSpeaker, isMicActive, setShowMicPermissionGuide }) {
   const [isEarMode, setIsEarMode] = useState(false);
   const wakeLockRef = useRef(null);
 
@@ -170,6 +170,28 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
 
       <div className="relative flex flex-col items-center justify-center h-full px-6 py-4 animate-fade-in bg-[#0f172a]">
         <div className="w-full h-full max-h-[580px] flex flex-col items-center justify-between">
+          {/* 마이크 비활성화 경고 배너 */}
+          {!isSpeaker && !isMicActive && (
+            <div 
+              onClick={() => setShowMicPermissionGuide(true)}
+              className="w-full max-w-[300px] bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 rounded-xl p-2.5 mt-1 flex items-center gap-2.5 text-left cursor-pointer transition-all active:scale-[0.98] animate-pulse z-20"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-amber-200 text-xs font-bold flex items-center gap-1">
+                  수화기(귀 스피커) 모드 꺼짐
+                </p>
+                <p className="text-amber-300/80 text-[10px] leading-snug mt-0.5 font-light">
+                  마이크 권한을 허용하시면 진짜 전화기처럼 귀에 대고 들을 수 있습니다. <span className="font-semibold text-white underline">권한 켜기 →</span>
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 발신자 정보 */}
           <div className="text-center z-10 flex flex-col items-center mt-2">
             <div className="w-20 h-20 rounded-full bg-slate-800 mx-auto mb-3 border-4 border-slate-700 overflow-hidden shadow-2xl">
