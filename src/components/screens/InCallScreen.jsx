@@ -60,6 +60,31 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
     };
   }, []);
 
+  // 2. DeviceOrientation API 가상 근접센서 (Ear Mode) 구현
+  useEffect(() => {
+    // 스피커폰이 켜져 있으면 가상 근접센서 모드를 작동하지 않음
+    if (isSpeaker) {
+      setIsEarMode(false);
+      return;
+    }
+
+    const handleOrientation = (event) => {
+      const { beta, gamma } = event;
+      if (beta === null || gamma === null) return;
+
+      // 일반적인 전화 통화 자세 (폰을 세워서 귀에 대는 형태)
+      // pitch(beta) 각도가 65도에서 115도 사이이거나, -115도에서 -65도 사이일 때 귀에 대고 있는 것으로 간주하여 가상 근접 센서를 활성화합니다.
+      const isVertical = Math.abs(beta) > 65 && Math.abs(beta) < 115;
+      
+      setIsEarMode(isVertical);
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation);
+      setIsEarMode(false);
+    };
+  }, [isSpeaker]);
 
   const buttons = [
     {
@@ -210,6 +235,13 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
             </button>
           </div>
         </div>
+
+        {/* 가상 근접 센서 Ear Mode 오버레이 */}
+        {isEarMode && (
+          <div className="absolute inset-0 bg-black z-50 flex flex-col items-center justify-center pointer-events-auto select-none">
+            <span className="text-slate-500 text-xs font-light animate-pulse tracking-wide">귀에 대고 통화 중...</span>
+          </div>
+        )}
       </div>
     </>
   );

@@ -1015,6 +1015,19 @@ export function useCallSession() {
     stopTestSound();
     setSeconds(0);
 
+    // 가상 근접센서 작동을 위한 DeviceOrientation 권한 선제 요청 (iOS Safari 대응)
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            console.log('DeviceOrientation permission granted in handleStart');
+          }
+        })
+        .catch(err => {
+          console.log('DeviceOrientation permission request failed in handleStart:', err);
+        });
+    }
+
     // [발신자 목소리 오디오 파일 선재 기동용 AudioContext 초기화]
     // 사용자가 첫 선택 화면에서 '시작하기' 버튼을 누른 (User Gesture Token이 100% 활성화된) 시점에 
     // 즉시 오디오 콘텍스트를 만들어 두어, 이후 어떠한 브라우저 Autoplay 차단 정책에도 안전하도록 기동해 둡니다.
@@ -1117,6 +1130,20 @@ export function useCallSession() {
 
   const handleAccept = async () => {
     stopVibration();
+
+    // 가상 근접센서 작동을 위한 DeviceOrientation 권한 재차 요청 (iOS Safari 대응)
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            console.log('DeviceOrientation permission granted in handleAccept');
+          }
+        })
+        .catch(err => {
+          console.log('DeviceOrientation permission request failed in handleAccept:', err);
+        });
+    }
+
     setScreen('incall');
     isInitialSetupRef.current = true;
     setTimeout(() => {
@@ -1524,9 +1551,19 @@ export function useCallSession() {
             }
           }
 
-          // WebRTC 루프백 전면 재구축 실행 (이탈된 OS 스피커 라우팅을 다시 수화기로 원상 고정!)
-          console.log('Refreshing WebRTC loopback routing on visibility change...');
-          updateAudioRouting(false);
+          // WebRTC 루프백 상태 검사 (불필요한 핸드셰이크로 인한 1-2초 오디오 무음 끊김 예방)
+          const pc1 = webRTCPcRefs.current.pc1;
+          const pc2 = webRTCPcRefs.current.pc2;
+          const isWebRTCOk = pc1 && pc2 && 
+                             (pc1.connectionState === 'connected' || pc1.connectionState === 'connecting') &&
+                             (pc2.connectionState === 'connected' || pc2.connectionState === 'connecting');
+
+          if (needFreshMic || !isWebRTCOk) {
+            console.log('Refreshing WebRTC loopback routing on visibility change...');
+            updateAudioRouting(false);
+          } else {
+            console.log('WebRTC connection is healthy, skipping redundant reconstruction to prevent audio dropouts.');
+          }
         }
       }
     };
