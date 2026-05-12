@@ -121,6 +121,7 @@ export function useCallSession() {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
   const audioContextRef = useRef(null);
+  const predecodedAudioBufferRef = useRef(null); // 사전 디코딩된 발신자 음성 AudioBuffer 저장소
   const sourceNodeRef = useRef(null);
   const hpFilterRef = useRef(null);
   const lpFilterRef = useRef(null);
@@ -662,6 +663,7 @@ export function useCallSession() {
       audioContextRef.current.close().catch((e) => console.log('AudioContext close error:', e));
     }
     audioContextRef.current = null;
+    predecodedAudioBufferRef.current = null;
     sourceNodeRef.current = null;
     hpFilterRef.current = null;
     lpFilterRef.current = null;
@@ -833,7 +835,10 @@ export function useCallSession() {
 
       // 1. 오디오 파일 획득 및 디코딩 (HTML5 <audio> 사용을 회피하여 브라우저 가상 볼륨/라우팅 버그 차단)
       let audioBuffer;
-      if (src instanceof AudioBuffer) {
+      if (predecodedAudioBufferRef.current) {
+        audioBuffer = predecodedAudioBufferRef.current;
+        console.log('Using pre-decoded AudioBuffer for 0ms latency iOS-safe playback!');
+      } else if (src instanceof AudioBuffer) {
         audioBuffer = src;
       } else if (prefetchedBufferRef.current) {
         // 프리패치된 ArrayBuffer 복사본을 생성해 가동 중인 컨텍스트에서 안전하게 디코딩 진행
@@ -1018,6 +1023,40 @@ export function useCallSession() {
         });
         audioContextRef.current = ctx;
         console.log('AudioContext successfully initialized inside handleStart click gesture handler!');
+
+        // iOS Safari 오디오 세션 즉각 활성화 및 컨텍스트 강제 가동 (Warm-up)
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(e => console.log('Context resume error inside handleStart:', e));
+        }
+
+        // 극소 크기의 무음 버퍼 재생을 통해 iOS Safari의 AudioContext 제한을 완전히 잠금 해제합니다.
+        try {
+          const silentBuf = ctx.createBuffer(1, 1, 22050);
+          const silentSrc = ctx.createBufferSource();
+          silentSrc.buffer = silentBuf;
+          silentSrc.connect(ctx.destination);
+          silentSrc.start(0);
+          console.log('Unlocked AudioContext with silent buffer inside handleStart!');
+        } catch (e) {
+          console.log('Failed to play silent buffer inside handleStart:', e);
+        }
+
+        // [초강력 선제 디코딩]
+        // 시작하기 버튼을 누른 이 시점에 이미 다운로드된 ArrayBuffer가 있다면
+        // 수신 화면(incoming)에서 기다리는 동안 백그라운드에서 오디오를 미리 디코딩해 둡니다.
+        // 이를 통해 수락(Accept) 버튼 클릭 시 비동기 디코딩 지연 없이 0ms 즉시 재생되어
+        // 사파리/iOS 환경에서 발생하는 유저 제스처 유효 시간 초과에 따른 오디오 음소거 문제를 완벽히 무력화합니다.
+        if (prefetchedBufferRef.current) {
+          const bufferCopy = prefetchedBufferRef.current.slice(0);
+          safeDecodeAudioData(ctx, bufferCopy)
+            .then(decodedBuffer => {
+              predecodedAudioBufferRef.current = decodedBuffer;
+              console.log('Voice audio successfully pre-decoded and cached during incoming call state!');
+            })
+            .catch(err => {
+              console.log('Failed to pre-decode audio in handleStart:', err);
+            });
+        }
       }
     } catch (e) {
       console.log('AudioContext initialization failed inside handleStart:', e);
@@ -1096,8 +1135,21 @@ export function useCallSession() {
         audioContextRef.current = ctx;
       }
     }
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(e => console.log('Context resume error inside handleAccept:', e));
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(e => console.log('Context resume error inside handleAccept:', e));
+      }
+      // 수락 버튼 클릭 직후 극소 무음 오디오를 재생하여 Safari의 재생 제한 토큰 만료를 한 번 더 완벽 차단합니다.
+      try {
+        const silentBuf = ctx.createBuffer(1, 1, 22050);
+        const silentSrc = ctx.createBufferSource();
+        silentSrc.buffer = silentBuf;
+        silentSrc.connect(ctx.destination);
+        silentSrc.start(0);
+        console.log('Unlocking AudioContext with silent buffer inside handleAccept!');
+      } catch (e) {
+        console.log('Failed to play silent buffer inside handleAccept:', e);
+      }
     }
 
     const isMobile = isMobileDevice();
@@ -1247,6 +1299,7 @@ export function useCallSession() {
     stopAudio(); // 전전 세션의 모든 오디오 컨텍스트 및 트랙 하드웨어 채널 완전 정리
     setConfig({ gender: null, caller: null });
     prefetchedBufferRef.current = null; // 사전 다운로드된 백그라운드 오디오 버퍼 초기화
+    predecodedAudioBufferRef.current = null; // 사전 디코딩된 오디오 버퍼 초기화
     // '다시 하기'를 눌러 처음으로 돌아가더라도 세션 동안 마주한 발신자 히스토리(seenCallers)를 보존합니다.
     // 이를 통해 모든 인물을 돌아가며 1회씩 중복 없이 반드시 마주할 수 있게 편향 현상을 완벽히 해소합니다.
     setIsSpeaker(false);
