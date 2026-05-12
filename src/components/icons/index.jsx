@@ -31,9 +31,9 @@ export const IconUser = () => (
 );
 
 /** 경고 아이콘 */
-export const IconAlert = () => (
+export const IconAlert = ({ size = 32 }) => (
   <svg
-    width="64" height="64"
+    width={size} height={size}
     viewBox="0 0 24 24"
     fill="none"
     stroke="#6366f1"
