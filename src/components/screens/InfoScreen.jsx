@@ -53,28 +53,63 @@ export default function InfoScreen({ onRestart }) {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-950 scroll-smooth custom-scrollbar">
-      {/* 1. Hero Section */}
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center">
-        <AnimatedSection className="flex flex-col items-center">
-          <div className="w-24 h-24 bg-indigo-500/10 rounded-[2rem] flex items-center justify-center mb-10 rotate-6 shadow-2xl border border-indigo-500/20">
-            <IconAlert />
+      {/* 1. Hero Section (100dvh 맞춤형 극대화 압축 레이아웃) */}
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 text-center overflow-hidden">
+        <AnimatedSection className="flex flex-col items-center w-full max-w-sm mx-auto space-y-3.5">
+          {/* 크기를 압축하여 상단 공간 확보 */}
+          <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center rotate-6 shadow-lg border border-indigo-500/20">
+            <IconAlert size={26} />
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black mb-8 leading-tight break-keep bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
+          <h2 className="text-2xl sm:text-3xl font-black leading-tight break-keep bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
             이것은 실제 상황일 수 있습니다.
           </h2>
-          <div className="bg-slate-900/80 p-8 rounded-[2.5rem] border border-white/5 max-w-sm w-full shadow-2xl break-keep">
-            <p className="text-xl sm:text-2xl font-bold mb-4 leading-tight">
+          
+          {/* 컴팩트화된 경고 카드 */}
+          <div className="bg-slate-900/80 p-4 rounded-2xl border border-white/5 w-full shadow-lg break-keep">
+            <p className="text-base sm:text-lg font-bold leading-tight text-white">
               <strong>스토킹과 교제폭력</strong>은<br /> 사랑이 아닙니다.
             </p>
-            <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+            <p className="text-slate-400 text-xs mt-1 leading-normal">
               상대를 통제하려 하거나, 원치 않는 연락을 반복하는 것은 명백한 폭력입니다.
             </p>
           </div>
+
+          {/* 야외에서도 한눈에 들어오는 컴팩트 초고대비 간식 이벤트 카드 */}
+          <div className="bg-slate-900 border-2 border-indigo-500 rounded-2xl p-4 space-y-3 shadow-2xl w-full text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-xl animate-bounce">🎁</span>
+              <h3 className="text-sm font-black text-white">체험 완료! 간식 수령 방법</h3>
+            </div>
+            
+            {/* 세밀하게 세로축 여백을 조율한 3단계 숏 가이드 */}
+            <div className="grid gap-1.5 text-[11px] text-slate-200">
+              <div className="flex items-center gap-2.5 bg-slate-950/60 p-2 rounded-xl border border-white/5">
+                <span className="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-[10px]">1</span>
+                <p className="font-bold">아래 버튼 눌러 인스타그램 <span className="text-pink-400 font-extrabold">팔로우</span></p>
+              </div>
+              <div className="flex items-center gap-2.5 bg-slate-950/60 p-2 rounded-xl border border-white/5">
+                <span className="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-[10px]">2</span>
+                <p className="font-bold">스태프에게 <span className="text-indigo-400 font-extrabold">팔로우 화면</span> 보여주기</p>
+              </div>
+              <div className="flex items-center gap-2.5 bg-indigo-950/40 p-2 rounded-xl border border-indigo-500/20">
+                <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-[10px]">3</span>
+                <p className="font-bold">서명 작성 후 <span className="text-emerald-400 font-extrabold">맛있는 간식</span> 수령!</p>
+              </div>
+            </div>
+
+            {/* 고강조 인스타그램 팔로우 버튼 (컴팩트 py-3) */}
+            <button
+              onClick={openInstagram}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 hover:from-orange-400 hover:to-purple-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-600/30 active:scale-95 transition-all animate-pulse border border-white/10"
+            >
+              인권 서포터즈 팔로우 하러가기 <IconInsta />
+            </button>
+          </div>
         </AnimatedSection>
         
-        {/* 스크롤 유도 인디케이터 */}
-        <div className="mt-16 animate-bounce opacity-50">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {/* 스크롤 유도 인디케이터 (높이 줄임) */}
+        <div className="mt-6 animate-bounce opacity-40">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500">
             <path d="m7 13 5 5 5-5M7 6l5 5 5-5"/>
           </svg>
         </div>
@@ -147,40 +182,8 @@ export default function InfoScreen({ onRestart }) {
           </div>
         </AnimatedSection>
 
-        {/* 3. 최종 액션 버튼 및 간식 수령 안내 */}
+        {/* 3. 최종 액션 버튼 */}
         <AnimatedSection className="flex flex-col gap-5 pt-8">
-          {/* 야외에서도 한눈에 들어오는 고대비 간식 이벤트 안내 카드 */}
-          <div className="bg-slate-900 border-2 border-indigo-500 rounded-3xl p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-2.5">
-              <span className="text-2xl animate-bounce">🎁</span>
-              <h3 className="text-base font-black text-white">체험 완료! 간식 수령 방법</h3>
-            </div>
-            
-            {/* 눈에 번쩍 띄는 3단계 숏 가이드 */}
-            <div className="grid gap-2 text-xs text-slate-200">
-              <div className="flex items-center gap-3 bg-slate-950/60 p-3 rounded-2xl border border-white/5">
-                <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xs">1</span>
-                <p className="font-bold">아래 버튼 눌러 인스타그램 <span className="text-pink-400 font-extrabold">팔로우</span></p>
-              </div>
-              <div className="flex items-center gap-3 bg-slate-950/60 p-3 rounded-2xl border border-white/5">
-                <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xs">2</span>
-                <p className="font-bold">스태프에게 <span className="text-indigo-400 font-extrabold">팔로우 화면</span> 보여주기</p>
-              </div>
-              <div className="flex items-center gap-3 bg-indigo-950/40 p-3 rounded-2xl border border-indigo-500/20">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs">3</span>
-                <p className="font-bold">서명 작성 후 <span className="text-emerald-400 font-extrabold">맛있는 간식</span> 수령!</p>
-              </div>
-            </div>
-
-            {/* 고강조 인스타그램 팔로우 버튼 (pulsing 애니메이션) */}
-            <button
-              onClick={openInstagram}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 hover:from-orange-400 hover:to-purple-500 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-pink-600/30 active:scale-95 transition-all animate-pulse border border-white/10"
-            >
-              인권 서포터즈 팔로우 하러가기 <IconInsta />
-            </button>
-          </div>
-          
           {/* 다른 시나리오 안내 카드 */}
           <div className="w-full py-4 px-5 rounded-2xl bg-slate-900/40 border border-white/5 text-center break-keep">
             <p className="text-slate-400 text-xs font-medium leading-relaxed">
