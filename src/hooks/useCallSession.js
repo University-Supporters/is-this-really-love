@@ -716,6 +716,18 @@ export function useCallSession() {
     const isAnd = isAndroidDevice();
 
     try {
+      // [iOS 무음 모드(Silent Switch) 무시 설정]
+      // iOS Safari 15+에서 벨소리(무음) 스위치가 켜져 있어도 일반 미디어 음량으로 소리가 출력되도록 오디오 세션 타입을 설정합니다.
+      if (isMobile && navigator.audioSession) {
+        try {
+          const targetType = isSpeaker ? 'playback' : 'play-and-record';
+          navigator.audioSession.type = targetType;
+          console.log(`[playAudio] Configured iOS audioSession type to: ${targetType}`);
+        } catch (e) {
+          console.log('[playAudio] Failed to set iOS audioSession type:', e);
+        }
+      }
+
       // handleStart에서 사전에 생성한 AudioContext가 존재하고 유효하다면 재사용, 없다면 새로 생성
       let ctx = audioContextRef.current;
       if (!ctx || ctx.state === 'closed') {
@@ -929,17 +941,20 @@ export function useCallSession() {
     // 성별 선택 후 '시작하기'를 누르면 미리 마이크 권한을 받아둡니다.
     // 이렇게 하면 전화 수락(InCall) 시점에 화면 풀림 현상이나 랙 없이 즉시 통화 연결이 가능합니다.
     const isMobile = isMobileDevice();
+    
+    // iOS Safari 오디오 세션 타입 선제 적용 (isSpeaker 여부에 따라 분기)
+    if (isMobile && navigator.audioSession) {
+      try {
+        const targetType = isSpeaker ? 'playback' : 'play-and-record';
+        navigator.audioSession.type = targetType;
+        console.log(`[handleStart] Pre-configured iOS audioSession type to: ${targetType}`);
+      } catch (err) {
+        console.log('[handleStart] navigator.audioSession pre-setting failed:', err);
+      }
+    }
+
     if (isMobile && !isSpeaker) {
       console.log('Pre-requesting microphone permission on handleStart.');
-      
-      // iOS Safari 오디오 세션 타입 선제 적용
-      if (navigator.audioSession) {
-        try {
-          navigator.audioSession.type = 'play-and-record';
-        } catch (err) {
-          console.log('navigator.audioSession pre-setting failed:', err);
-        }
-      }
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
@@ -1000,6 +1015,17 @@ export function useCallSession() {
     }
 
     const isMobile = isMobileDevice();
+    
+    // [iOS 무음 모드(Silent Switch) 무시 설정]
+    if (isMobile && navigator.audioSession) {
+      try {
+        const targetType = isSpeaker ? 'playback' : 'play-and-record';
+        navigator.audioSession.type = targetType;
+        console.log(`[handleAccept] Configured iOS audioSession type to: ${targetType}`);
+      } catch (err) {
+        console.log('[handleAccept] Failed to set iOS audioSession type:', err);
+      }
+    }
     
     // [중요: 수화기 및 마이크 피드백용 오디오 엘리먼트 동기적 사전 생성]
     // 모바일 사파리/크롬은 비동기(await) 영역 외부인 터치 핸들러 동기적 영역에서 생성되어 DOM에 삽입된 오디오 엘리먼트만 
@@ -1145,6 +1171,17 @@ export function useCallSession() {
     try {
       stopTestSound();
 
+      // [iOS 무음 모드(Silent Switch) 무시 설정]
+      // 사운드 테스트 재생 시에도 무음 모드와 관계없이 소리가 나도록 'playback'으로 고정합니다.
+      if (isMobileDevice() && navigator.audioSession) {
+        try {
+          navigator.audioSession.type = 'playback';
+          console.log('[playTestSound] Configured iOS audioSession type to: playback');
+        } catch (e) {
+          console.log('[playTestSound] Failed to set iOS audioSession type:', e);
+        }
+      }
+
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
       
@@ -1229,6 +1266,17 @@ export function useCallSession() {
       }
       testAudioCtxRef.current = null;
     }
+    
+    // 원래대로 auto로 복귀합니다.
+    if (isMobileDevice() && navigator.audioSession) {
+      try {
+        navigator.audioSession.type = 'auto';
+        console.log('[stopTestSound] Reset iOS audioSession type to: auto');
+      } catch (err) {
+        console.log('[stopTestSound] Failed to reset iOS audioSession type:', err);
+      }
+    }
+    
     setIsTestingSound(false);
   };
 
