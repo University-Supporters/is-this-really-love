@@ -512,14 +512,18 @@ export function useCallSession() {
       }
 
       // 오퍼 및 앤서 교환 (Local Loopback)
-      const offer = await pc1.createOffer();
+      let offer = await pc1.createOffer();
+      const modifiedOfferSdp = preferHighQualityOpus(offer.sdp);
+      offer = new RTCSessionDescription({ type: offer.type, sdp: modifiedOfferSdp });
       await pc1.setLocalDescription(offer);
       
       // pc2 원격 묘사 설정 후 대기 중인 pc1의 candidate들 적용
       await pc2.setRemoteDescription(offer);
       pc1Candidates.forEach(c => pc2.addIceCandidate(c).catch(() => {}));
 
-      const answer = await pc2.createAnswer();
+      let answer = await pc2.createAnswer();
+      const modifiedAnswerSdp = preferHighQualityOpus(answer.sdp);
+      answer = new RTCSessionDescription({ type: answer.type, sdp: modifiedAnswerSdp });
       await pc2.setLocalDescription(answer);
       
       // pc1 원격 묘사 설정 후 대기 중인 pc2의 candidate들 적용
@@ -546,9 +550,9 @@ export function useCallSession() {
       console.log('Acquiring mic stream for earpiece routing (In-Call Volume)...');
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          echoCancellation: false, // 이중 에코 캔슬러 간섭 배제 (수화기 음량 끊김 해결)
+          noiseSuppression: false, // 음성 왜곡 및 감쇄 차단
+          autoGainControl: false   // 강제 볼륨 변동 비활성화
         }
       });
       micStreamRef.current = stream;
@@ -1087,9 +1091,9 @@ export function useCallSession() {
           try {
             stream = await navigator.mediaDevices.getUserMedia({
               audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
+                echoCancellation: false, // 이중 에코 캔슬러 간섭 배제
+                noiseSuppression: false, // 음성 왜곡 차단
+                autoGainControl: false,  // 강제 볼륨 변동 비활성화
               }
             });
           } catch (e) {
@@ -1235,9 +1239,9 @@ export function useCallSession() {
             try {
               stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  autoGainControl: true,
+                  echoCancellation: false, // 이중 에코 캔슬러 간섭 배제
+                  noiseSuppression: false, // 음성 왜곡 차단
+                  autoGainControl: false,  // 강제 볼륨 변동 비활성화
                 }
               });
             } catch (e) {
@@ -1495,9 +1499,9 @@ export function useCallSession() {
                 try {
                   stream = await navigator.mediaDevices.getUserMedia({
                     audio: {
-                      echoCancellation: true,
-                      noiseSuppression: true,
-                      autoGainControl: true,
+                      echoCancellation: false, // 이중 에코 캔슬러 간섭 배제
+                      noiseSuppression: false, // 음성 왜곡 차단
+                      autoGainControl: false,  // 강제 볼륨 변동 비활성화
                     }
                   });
                 } catch (e) {
@@ -1565,9 +1569,9 @@ export function useCallSession() {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
+              echoCancellation: false, // 이중 에코 캔슬러 간섭 배제
+              noiseSuppression: false, // 음성 왜곡 차단
+              autoGainControl: false,  // 강제 볼륨 변동 비활성화
             }
           });
         } catch (e) {
