@@ -60,37 +60,7 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
     };
   }, []);
 
-  // 2. 가상 근접 센서 (Device Orientation Event) – 폰을 귀에 가까이 대었을 때 블랙오버레이 처리로 볼터치 완전 방지
-  useEffect(() => {
-    // 스피커폰 모드일 때는 Ear Mode(가상 근접 센서)를 작동하지 않음
-    if (isSpeaker) {
-      setIsEarMode(false);
-      return;
-    }
 
-    const handleOrientation = (event) => {
-      const { beta, gamma } = event;
-      if (beta === null || gamma === null) return;
-
-      // beta: 앞뒤 기울기 (-180 ~ 180), gamma: 좌우 기울기 (-90 ~ 90)
-      // 사용자가 폰을 수직으로 들고 귀에 대었을 때:
-      // 보통 beta는 70도 ~ 110도 사이로 서있게 됨.
-      // gamma는 얼굴 측면에 밀착하며 약 -35도 ~ 35도 사이를 이룸.
-      const isVertical = Math.abs(beta) > 70 && Math.abs(beta) < 110;
-      const isCloseToFace = Math.abs(gamma) < 35;
-
-      if (isVertical && isCloseToFace) {
-        setIsEarMode(true);
-      } else {
-        setIsEarMode(false);
-      }
-    };
-
-    window.addEventListener('deviceorientation', handleOrientation);
-    return () => {
-      window.removeEventListener('deviceorientation', handleOrientation);
-    };
-  }, [isSpeaker]);
   const buttons = [
     {
       id: 'mute',
@@ -157,17 +127,6 @@ export default function InCallScreen({ caller, formattedTime, onHangUp, isSpeake
 
   return (
     <>
-      {/* 귀에 밀착하여 통화 중일 때 (Ear Mode) 블랙스크린 처리 및 터치 완전 차단 */}
-      {isEarMode && (
-        <div 
-          className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center pointer-events-auto touch-none select-none"
-          style={{ cursor: 'none' }}
-        >
-          {/* 눈부심 방지 및 오작동 잠금 가이드 */}
-          <span className="text-zinc-800 text-[10px] tracking-widest font-mono">EAR MODE ACTIVE</span>
-        </div>
-      )}
-
       <div className="relative flex flex-col items-center justify-center h-full px-6 py-4 animate-fade-in bg-[#0f172a]">
         <div className="w-full h-full max-h-[580px] flex flex-col items-center justify-between">
           {/* 마이크 비활성화 경고 배너 */}
