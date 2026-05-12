@@ -117,8 +117,8 @@ export function useCallSession() {
 
 
 
-  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (일반 볼륨 모드로 고정합니다)
-  const [isSpeaker, setIsSpeaker] = useState(true);
+  // 스피커폰 및 전화 통화 사운드 필터 관리를 위한 상태 및 Ref (기본값: 수화기 모드로 고정하여 통화 채널 음량 자동 활용)
+  const [isSpeaker, setIsSpeaker] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
   const audioContextRef = useRef(null);
   const sourceNodeRef = useRef(null);
@@ -406,34 +406,46 @@ export function useCallSession() {
             webRTCPcRefs.current.streamAudio = streamAudio;
           }
           
-          console.log('Setting srcObject on streamAudio and playing at background inaudible volume to lock background WebRTC session...');
+          console.log('Setting srcObject on streamAudio...');
           streamAudio.srcObject = e.streams[0];
-          streamAudio.volume = 0.00001; // 백그라운드 세션 락 유지를 위해 아주 미세한 비가청 볼륨 재생
+          
+          if (isMobileDevice()) {
+            // [모바일 볼륨 락 버그 우회] 모바일 환경(iOS/Android)에서는 Web Audio API(AudioContext.destination)로 라우팅 시
+            // 소리 크기가 '일반/미디어 볼륨'에 고정되지만, 하드웨어 버튼은 '통화 볼륨'을 조절하게 되어 볼륨 조절이 불가능해지는 버그가 있습니다.
+            // 이를 해결하기 위해 모바일은 AudioContext로 라우팅하지 않고, <audio> 태그를 통해 100% 음량으로 직접 송출합니다.
+            // 이렇게 하면 하드웨어 물리 볼륨 버튼으로 통화/음성 볼륨을 정상적으로 조절할 수 있게 됩니다.
+            streamAudio.volume = 1.0;
+            console.log('Mobile device detected: Playing streamAudio directly at 100% volume to unlock hardware Call Volume keys.');
+          } else {
+            streamAudio.volume = 0.00001; // 데스크톱은 백그라운드 세션 락용 극소 볼륨
+          }
+          
           streamAudio.play()
-            .then(() => console.log('Background streamAudio inaudible session locked.'))
+            .then(() => console.log('streamAudio playback started.'))
             .catch(err => console.log('streamAudio play failed:', err));
             
           androidStreamAudioRef.current = streamAudio;
 
-          // [핵심] 실제 오디오 재생은 <audio> 엘리먼트가 아닌 Web Audio API(AudioContext.destination)를 통해 전면 송출합니다!
-          // iOS Safari 및 인앱 브라우저(카카오톡, 라인 등)는 마이크 활성화 시 AudioContext.destination의 소리를
-          // 미디어 스피커가 아닌 실제 수화기(Earpiece)로 강제 정렬합니다. 
-          // 이를 통해 얼굴 밀착 시 근접센서로 인해 귀 쪽 스피커가 강제로 음소거(Mute)되는 브라우저 미디어 버그를 완전히 극복합니다.
-          try {
-            const ctx = audioContextRef.current;
-            if (ctx) {
-              if (webRTCPcRefs.current.rtcSourceNode) {
-                try { webRTCPcRefs.current.rtcSourceNode.disconnect(); } catch (err) {}
+          // [핵심] 모바일이 아닐 때만 AudioContext로 라우팅 (모바일은 위의 <audio> 직접 재생을 통해 통화 음량 제어권을 보존)
+          if (!isMobileDevice()) {
+            try {
+              const ctx = audioContextRef.current;
+              if (ctx) {
+                if (webRTCPcRefs.current.rtcSourceNode) {
+                  try { webRTCPcRefs.current.rtcSourceNode.disconnect(); } catch (err) {}
+                }
+                const rtcSource = ctx.createMediaStreamSource(e.streams[0]);
+                rtcSource.connect(ctx.destination);
+                webRTCPcRefs.current.rtcSourceNode = rtcSource;
+                console.log('WebRTC track connected back to AudioContext destination for premium earphone/earpiece routing!');
+              } else {
+                console.log('AudioContext is not initialized, skipping direct destination routing.');
               }
-              const rtcSource = ctx.createMediaStreamSource(e.streams[0]);
-              rtcSource.connect(ctx.destination);
-              webRTCPcRefs.current.rtcSourceNode = rtcSource;
-              console.log('WebRTC track connected back to AudioContext destination for premium earphone/earpiece routing!');
-            } else {
-              console.log('AudioContext is not initialized, skipping direct destination routing.');
+            } catch (err) {
+              console.log('Failed to route WebRTC track via AudioContext destination:', err);
             }
-          } catch (err) {
-            console.log('Failed to route WebRTC track via AudioContext destination:', err);
+          } else {
+            console.log('Mobile device: Skipping AudioContext destination routing to preserve native hardware volume control.');
           }
         }
       };
@@ -525,6 +537,39 @@ export function useCallSession() {
       streamAudio.play().catch(err => console.log(err));
       androidStreamAudioRef.current = streamAudio;
     }
+  };
+
+  const acquireMicStream = async () => {
+    if (micStreamRef.current) return micStreamRef.current;
+    try {
+      console.log('Acquiring mic stream for earpiece routing (In-Call Volume)...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      micStreamRef.current = stream;
+      setIsMicActive(true);
+      return stream;
+    } catch (err) {
+      console.log('Failed to acquire mic stream:', err);
+      return null;
+    }
+  };
+
+  const releaseMicStream = () => {
+    console.log('Releasing mic stream to restore Media Volume channel...');
+    if (micStreamRef.current) {
+      try {
+        micStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        console.log('Error stopping mic tracks:', e);
+      }
+      micStreamRef.current = null;
+    }
+    setIsMicActive(false);
   };
 
   const ensureMicLinkedToContext = () => {
@@ -663,7 +708,7 @@ export function useCallSession() {
     }
   };
 
-  const updateMobileAudioRouting = (speakerOn) => {
+  const updateMobileAudioRouting = async (speakerOn) => {
     if (!audioContextRef.current || !sourceNodeRef.current) return;
 
     try {
@@ -685,11 +730,44 @@ export function useCallSession() {
       }
 
       if (speakerOn) {
-        // 스피커폰 켜짐: WebRTC 해제 후 기본 오디오 출력지(Loudspeaker)로 직접 연결
+        // [스피커폰 활성화 - 일반 미디어 음량으로 전환]
+        // 1. 마이크 트랙 정지 -> VoIP 모드 비활성화하여 기기가 일반 미디어 채널로 돌아가게 유도
+        releaseMicStream();
+
+        // 2. WebRTC 세션 정리 (통화 인터페이스 클린업)
         cleanupWebRTC();
+
+        // 3. iOS 오디오 세션을 'playback'으로 명확히 리바인딩하여 미디어 음량 채널 지정
+        if (navigator.audioSession) {
+          try {
+            navigator.audioSession.type = 'playback';
+            console.log('AudioSession type switched to playback (Media Volume)');
+          } catch (e) {
+            console.log('Error switching to playback session:', e);
+          }
+        }
+
+        // 4. 필터를 통하지 않은 깨끗한 원음을 직접 기본 스피커(ctx.destination)로 송출
         masterGain.connect(ctx.destination);
       } else {
-        // 스피커폰 꺼짐(수화기): 모바일(iOS 및 안드로이드) 수화기 강제 WebRTC 루프백 라우팅
+        // [수화기/귀 스피커 활성화 - 전화 통화 음량으로 전환]
+        // 1. iOS 오디오 세션 카테고리를 'play-and-record' (VoIP)로 먼저 전환
+        if (navigator.audioSession) {
+          try {
+            navigator.audioSession.type = 'play-and-record';
+            console.log('AudioSession type switched to play-and-record (VoIP Volume)');
+          } catch (e) {
+            console.log('Error switching to play-and-record session:', e);
+          }
+        }
+
+        // 2. 마이크 스트림 활성화 -> VoIP 채널 강제 구동
+        const stream = await acquireMicStream();
+
+        // 3. 마이크 가상 풀링 연결 보완
+        ensureMicLinkedToContext();
+
+        // 4. 필터 및 WebRTC 루프백 세션 구동
         const dest = ctx.createMediaStreamDestination();
         dest.channelCount = 1;
         if (hpFilter && lpFilter) {
@@ -708,7 +786,15 @@ export function useCallSession() {
   };
 
   const toggleSpeaker = async () => {
-    console.log('Speakerphone is permanently active.');
+    const newState = !isSpeaker;
+    setIsSpeaker(newState);
+    
+    // 즉각적인 하드웨어 라우팅 전환 (진행 중인 통화가 있다면 바로 적용)
+    if (isMobileDevice()) {
+      updateMobileAudioRouting(newState);
+    } else {
+      updateAudioRouting(newState);
+    }
   };
 
   const playAudio = async (src) => {
@@ -766,10 +852,10 @@ export function useCallSession() {
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
-      // 3. 디폴트 볼륨 설정 (마스터 게인 노드 - 일반 볼륨 20%로 자동 설정)
+      // 3. 디폴트 볼륨 설정 (마스터 게인 노드 - 일반 볼륨 100%로 상향 조정하여 작게 들리는 문제 해결)
       const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(0.2, ctx.currentTime);
-      masterGain.gain.value = 0.2;
+      masterGain.gain.setValueAtTime(1.0, ctx.currentTime);
+      masterGain.gain.value = 1.0;
       source.connect(masterGain);
       
       // 라우팅 스위칭(updateMobileAudioRouting)의 기점이 될 노드 지정
@@ -832,9 +918,9 @@ export function useCallSession() {
       }
     } catch (err) {
       console.log('Web Audio Buffer play failed, falling back to basic Audio:', err);
-      // 구형 기기를 위한 원시 HTML5 오디오 폴백
+      // 구형 기기를 위한 원시 HTML5 오디오 폴백 (볼륨 100%로 상향)
       const audio = new Audio(`${src}?v=${Date.now()}`);
-      audio.volume = 0.2;
+      audio.volume = 1.0;
       audio.addEventListener('ended', () => handleHangUp(true));
       audioRef.current = audio;
       audio.play().catch(e => console.log('Fallback play failed:', e));

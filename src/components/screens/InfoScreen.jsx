@@ -147,18 +147,43 @@ export default function InfoScreen({ onRestart }) {
           </div>
         </AnimatedSection>
 
-        {/* 3. 최종 액션 버튼 */}
+        {/* 3. 최종 액션 버튼 및 간식 수령 안내 */}
         <AnimatedSection className="flex flex-col gap-5 pt-8">
-          <button
-            onClick={openInstagram}
-            className="w-full py-5 rounded-3xl bg-gradient-to-br from-orange-500 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center gap-3 shadow-2xl shadow-pink-600/20 hover:scale-[1.02] active:scale-95 transition-all"
-          >
-            인권 서포터즈 인스타그램 <IconInsta />
-          </button>
+          {/* 야외에서도 한눈에 들어오는 고대비 간식 이벤트 안내 카드 */}
+          <div className="bg-slate-900 border-2 border-indigo-500 rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl animate-bounce">🎁</span>
+              <h3 className="text-base font-black text-white">체험 완료! 간식 수령 방법</h3>
+            </div>
+            
+            {/* 눈에 번쩍 띄는 3단계 숏 가이드 */}
+            <div className="grid gap-2 text-xs text-slate-200">
+              <div className="flex items-center gap-3 bg-slate-950/60 p-3 rounded-2xl border border-white/5">
+                <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xs">1</span>
+                <p className="font-bold">아래 버튼 눌러 인스타그램 <span className="text-pink-400 font-extrabold">팔로우</span></p>
+              </div>
+              <div className="flex items-center gap-3 bg-slate-950/60 p-3 rounded-2xl border border-white/5">
+                <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xs">2</span>
+                <p className="font-bold">스태프에게 <span className="text-indigo-400 font-extrabold">팔로우 화면</span> 보여주기</p>
+              </div>
+              <div className="flex items-center gap-3 bg-indigo-950/40 p-3 rounded-2xl border border-indigo-500/20">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs">3</span>
+                <p className="font-bold">서명 작성 후 <span className="text-emerald-400 font-extrabold">맛있는 간식</span> 수령!</p>
+              </div>
+            </div>
+
+            {/* 고강조 인스타그램 팔로우 버튼 (pulsing 애니메이션) */}
+            <button
+              onClick={openInstagram}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 via-pink-600 to-purple-600 hover:from-orange-400 hover:to-purple-500 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-pink-600/30 active:scale-95 transition-all animate-pulse border border-white/10"
+            >
+              인권 서포터즈 팔로우 하러가기 <IconInsta />
+            </button>
+          </div>
           
-          {/* 모바일 하드웨어 완벽 초기화 및 시나리오 꼬임 방지를 위한 새로고침 유도 안내 카드 */}
-          <div className="w-full py-5 px-6 rounded-3xl bg-slate-900/50 border border-white/5 text-center break-keep">
-            <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed">
+          {/* 다른 시나리오 안내 카드 */}
+          <div className="w-full py-4 px-5 rounded-2xl bg-slate-900/40 border border-white/5 text-center break-keep">
+            <p className="text-slate-400 text-xs font-medium leading-relaxed">
               💡 다른 인물(시나리오)의 전화를 추가로 체험하시려면<br />
               <strong className="text-indigo-400 font-bold">인터넷 페이지를 새로고침(F5)</strong>해 주세요.
             </p>

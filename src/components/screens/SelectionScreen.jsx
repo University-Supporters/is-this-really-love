@@ -55,41 +55,23 @@ export default function SelectionScreen({
             </div>
           </div>
 
-          {/* 음량 조절 및 따르릉 테스트 카드 */}
-          <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-3.5 backdrop-blur-md">
-            <div className="flex items-start gap-2.5">
-              <span className="text-xl">🔊</span>
-              <div className="space-y-1">
-                <h4 className="text-xs font-extrabold text-slate-200 tracking-wide">원활한 체험을 위한 음량 조절</h4>
-                <p className="text-[11px] text-slate-400 leading-normal font-light">
-                  전화벨과 상대방 목소리가 잘 들릴 수 있도록 스마트폰 측면 버튼을 눌러 <strong className="text-indigo-400 font-extrabold">미디어 볼륨을 꼭 키워주세요</strong>.
-                </p>
-              </div>
+          {/* 야외 가독성 극대화 마이크 권한 안내 카드 */}
+          <div className="bg-slate-900/90 border-2 border-indigo-500 rounded-2xl p-4 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl animate-pulse">🎙️</span>
+              <h4 className="text-base font-black text-white tracking-wide">필수: 마이크 권한 허용</h4>
             </div>
-
-            <div className="h-[1px] bg-white/5" />
-
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400">볼륨 및 스피커 테스트</span>
-              <button
-                type="button"
-                onClick={toggleTestSound}
-                className={`
-                  px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-300 flex items-center gap-1.5 shadow-sm border
-                  ${isTestingSound 
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-pulse' 
-                    : 'bg-slate-800/80 text-slate-300 border-slate-700/50 hover:bg-slate-700'}
-                `}
-              >
-                {isTestingSound ? (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
-                    테스트 정지
-                  </>
-                ) : (
-                  '따르릉 소리 테스트'
-                )}
-              </button>
+            
+            <div className="space-y-1.5 text-slate-200">
+              <p className="text-sm font-black bg-indigo-600/50 text-indigo-100 p-2 rounded-xl text-center border border-indigo-400">
+                👉 "이 사이트에 있는 동안 허용" 선택
+              </p>
+              <p className="text-xs font-bold text-center text-rose-300">
+                ※ 권한을 허용하지 않으면 소리가 들리지 않습니다.
+              </p>
+              <p className="text-[11px] text-center text-slate-400 font-medium">
+                (통화가 시작되면 진짜 전화처럼 휴대폰을 귀에 대고 들으세요!)
+              </p>
             </div>
           </div>
 
